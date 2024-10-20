@@ -1,5 +1,10 @@
 ---
-version: "3.8"
+
+networks:
+  sentry-private:
+    # NOTE: This network needs to be manually created and needs to
+    #       be configured for manual container attachment
+    external: true
 
 services:
   # -- MAIN SERVICE --
@@ -19,6 +24,7 @@ services:
         constraints:
           - ${PLACEMENT_CONSTRAINT}
     environment:
+      NETWORK_NAME: sentry-private
       # Releases:
       #   https://github.com/getsentry/self-hosted/releases
       SENTRY_VERSION: 24.8.0
@@ -53,7 +59,6 @@ services:
       SKIP_ADMIN_USER_CREATE: ${SKIP_ADMIN_USER_CREATE:-false}
       ALWAYS_FORCE_RECREATE: ${ALWAYS_FORCE_RECREATE:-false}
       KEEP_ALIVE: ${KEEP_ALIVE:-true}
-      RUN_WITH_DIND: ${RUN_WITH_DIND:-false}
       DIND_MEMLIMIT: ${DIND_MEMLIMIT:-0}
       REDIS_MEMLIMIT: ${REDIS_MEMLIMIT:-0}
     volumes:
@@ -63,3 +68,71 @@ services:
       - type: bind
         source: ${SENTRY_DATA_PATH}
         target: ${SENTRY_DATA_PATH}
+
+  # -- REVERSE PROXY --
+  proxy:
+    image: library/nginx:latest
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 10s
+      placement:
+        constraints:
+          - ${PLACEMENT_CONSTRAINT}
+      labels:
+        #### -- Enable traefik router for this service
+        - "traefik.enable=true"
+        - "traefik.http.services.swarm-sentry.loadbalancer.server.port=80"
+        - "traefik.http.routers.swarm-sentry.entrypoints=web"
+        # Configure router domain
+        - "traefik.http.routers.swarm-sentry.rule=Host(`${TRAEFIK_DOMAIN}`)"
+    environment:
+      NETWORK_NAME: sentry-private
+      SENTRY_DATA_PATH: ${SENTRY_DATA_PATH}
+    volumes:
+      - type: bind
+        source: ${SENTRY_DATA_PATH}
+        target: ${SENTRY_DATA_PATH}
+    networks:
+      - sentry-private
+    ports:
+      - target: 80
+        published: 9080
+        mode: host
+    entrypoint: "sh"
+    command: |
+      -c '
+      set -e
+
+      dind_continer_name="sentry-swarm-dind"
+
+      echo "Waiting for Sentry manager container..."
+      sleep 5
+      i=1
+      while [ $$i -le 60 ]; do
+        if [ -f "$${SENTRY_DATA_PATH}/self_hosted/.z-manager-service-running.txt" ]; then
+            echo "  - The Sentry manager container is running"
+            break
+        fi
+        echo "  - Sentry manager container check #$$i - Not yet running. Recheck in 10 seconds..."
+        sleep 10
+        i=$$((i + 1))
+      done
+      echo
+
+      echo "Configuring Nginx proxy..."
+      if [ ! -f "$${SENTRY_DATA_PATH}/self_hosted/nginx/nginx.conf" ]; then
+        echo "  - Nginx Config does not yet exist. Exit!"
+        exit 1
+      fi
+      cp -fv "$${SENTRY_DATA_PATH}/self_hosted/nginx/nginx.conf" "/etc/nginx/nginx.conf"
+      sed -i "s|server relay|server $${dind_continer_name:?}|" "/etc/nginx/nginx.conf"
+      sed -i "s|server web|server $${dind_continer_name:?}|" "/etc/nginx/nginx.conf"
+      cat /etc/nginx/nginx.conf
+      echo
+
+      echo "Running Nginx entrypoint..."
+      /docker-entrypoint.sh nginx -g "daemon off;" 
+      echo
+      '

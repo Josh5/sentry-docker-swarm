@@ -27,14 +27,19 @@ From the root of this project, run these commands:
     sed -i "s|^SENTRY_DATA_PATH=.*|SENTRY_DATA_PATH=${PWD:?}/tmp/data/sentry|" .env
     ```
 
-4) Build the docker image.
+4) Create the custom docker network.
+    ```
+    sudo docker network create sentry-private
+    ```
+
+5) Build the docker image.
     ```
     sudo docker compose build
     ```
 
-5) Modify any additional config options in the `.env` file.
+6) Modify any additional config options in the `.env` file.
 
-6) Run the dev compose stack
+7) Run the dev compose stack
     ```
     sudo docker compose up -d
     ```
