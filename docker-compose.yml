@@ -1,0 +1,65 @@
+---
+version: "3.8"
+
+services:
+  # -- MAIN SERVICE --
+  manager:
+    # Releases:
+    #   https://hub.docker.com/_/docker/tags
+    image: josh5/sentry-docker-swarm
+    build:
+      context: docker
+      dockerfile: Dockerfile
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 60s
+      placement:
+        constraints:
+          - ${PLACEMENT_CONSTRAINT}
+    environment:
+      # Releases:
+      #   https://github.com/getsentry/self-hosted/releases
+      SENTRY_VERSION: 24.8.0
+      SENTRY_BEACON_DISABLED: ${SENTRY_BEACON_DISABLED}
+      SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY}
+      SENTRY_URL_PREFIX: ${SENTRY_URL_PREFIX}
+      SENTRY_CUSTOM_DB_CONFIG: ${SENTRY_CUSTOM_DB_CONFIG}
+      SENTRY_DB_NAME: ${SENTRY_DB_NAME}
+      SENTRY_DB_USER: ${SENTRY_DB_USER}
+      SENTRY_DB_PASSWORD: ${SENTRY_DB_PASSWORD}
+      SENTRY_POSTGRES_HOST: ${SENTRY_POSTGRES_HOST}
+      SENTRY_POSTGRES_PORT: ${SENTRY_POSTGRES_PORT}
+      SENTRY_EVENT_RETENTION_DAYS: ${SENTRY_EVENT_RETENTION_DAYS:-90}
+      SENTRY_COMPOSE_PROFILES: ${SENTRY_COMPOSE_PROFILES:-feature-complete}
+      SENTRY_CUSTOM_MAIL_SERVER_CONFIG: ${SENTRY_CUSTOM_MAIL_SERVER_CONFIG}
+      SENTRY_EMAIL_HOST: ${SENTRY_EMAIL_HOST}
+      SENTRY_EMAIL_PORT: ${SENTRY_EMAIL_PORT}
+      SENTRY_EMAIL_USER: ${SENTRY_EMAIL_USER}
+      SENTRY_EMAIL_PASSWORD: ${SENTRY_EMAIL_PASSWORD}
+      SENTRY_EMAIL_USE_TLS: ${SENTRY_EMAIL_USE_TLS}
+      SENTRY_EMAIL_USE_SSL: ${SENTRY_EMAIL_USE_SSL}
+      SENTRY_SERVER_EMAIL: ${SENTRY_SERVER_EMAIL}
+      SENTRY_MAIL_HOST: ${SENTRY_MAIL_HOST}
+      SENTRY_FILESTORE_BACKEND_S3_BUCKET: ${SENTRY_FILESTORE_BACKEND_S3_BUCKET}
+      SENTRY_INITIAL_ADMIN_EMAIL: ${SENTRY_INITIAL_ADMIN_EMAIL}
+      ADDITIONAL_APT_PACKAGES: ${ADDITIONAL_APT_PACKAGES}
+      ADDITIONAL_PYTHON_MODULES: ${ADDITIONAL_PYTHON_MODULES}
+      SENTRY_CONF_CUSTOM: ${SENTRY_CONF_CUSTOM}
+      SENTRY_ENV_CUSTOM: ${SENTRY_ENV_CUSTOM}
+      SENTRY_DATA_PATH: ${SENTRY_DATA_PATH}
+      EXEC_NUCLEAR_CLEAN: ${EXEC_NUCLEAR_CLEAN:-false}
+      SKIP_ADMIN_USER_CREATE: ${SKIP_ADMIN_USER_CREATE:-false}
+      ALWAYS_FORCE_RECREATE: ${ALWAYS_FORCE_RECREATE:-false}
+      KEEP_ALIVE: ${KEEP_ALIVE:-true}
+      RUN_WITH_DIND: ${RUN_WITH_DIND:-false}
+      DIND_MEMLIMIT: ${DIND_MEMLIMIT:-0}
+      REDIS_MEMLIMIT: ${REDIS_MEMLIMIT:-0}
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: bind
+        source: ${SENTRY_DATA_PATH}
+        target: ${SENTRY_DATA_PATH}
