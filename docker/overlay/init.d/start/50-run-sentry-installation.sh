@@ -5,14 +5,14 @@
 # File Created: Monday, 21st October 2024 11:34:52 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 21st October 2024 12:29:20 pm
+# Last Modified: Monday, 21st October 2024 10:53:02 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
 # Check if we should perform a "nuclear clean" before running the installation
 if [ "${EXEC_NUCLEAR_CLEAN:-}" = "true" ]; then
     echo "--- Running a nuclear clean of the Kafka and Zookeeper volumes ---"
-    ${docker_cmd:?} compose down --volumes --remove-orphans
+    ${docker_compose_cmd:?} down --volumes --remove-orphans
     ${docker_cmd:?} volume rm sentry-kafka || true
     ${docker_cmd:?} volume rm sentry-zookeeper || true
     rm -f ${SENTRY_DATA_PATH:?}/self_hosted/.z-installed-sentry-version.txt
@@ -48,7 +48,7 @@ else
         echo "  - Generating initial admin user credentials"
         temp_password=$(echo "$(date +%s.%N) $(shuf -n1 -i0-999999)" | sha256sum | base64 | head -c 16)
         cd ${SENTRY_DATA_PATH:?}/self_hosted
-        ${docker_cmd:?} compose run --rm web sentry createuser --email "${SENTRY_INITIAL_ADMIN_EMAIL:?}" --password "${temp_password:?}" --superuser || true
+        ${docker_compose_cmd:?} run --rm web sentry createuser --email "${SENTRY_INITIAL_ADMIN_EMAIL:?}" --password "${temp_password:?}" --superuser || true
         echo "  - Created user ${SENTRY_INITIAL_ADMIN_EMAIL:?} with temporary password ${temp_password:?}"
         echo "${SENTRY_VERSION}" >${SENTRY_DATA_PATH:?}/self_hosted/.z-initial-admin-generated.txt
     else

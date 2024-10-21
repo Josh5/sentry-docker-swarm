@@ -5,19 +5,9 @@
 # File Created: Monday, 21st October 2024 11:23:14 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 21st October 2024 12:29:17 pm
+# Last Modified: Monday, 21st October 2024 10:55:47 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
-
-echo "--- Patch Docker Compose file ---"
-if [ ! -f "${SENTRY_DATA_PATH}/self_hosted/docker-compose.original.yml" ]; then
-    cp -fv "${SENTRY_DATA_PATH}/self_hosted/docker-compose.yml" "${SENTRY_DATA_PATH}/self_hosted/docker-compose.original.yml"
-fi
-cp -fv "${SENTRY_DATA_PATH}/self_hosted/docker-compose.original.yml" "${SENTRY_DATA_PATH}/self_hosted/docker-compose.yml"
-
-echo "  - Patch Docker Compose file memory limits within the DIND container."
-sed -i "/x-restart-policy: &restart_policy/a \ \ mem_limit: ${DIND_MEMLIMIT:-0}" \
-    "${SENTRY_DATA_PATH}/self_hosted/docker-compose.yml"
 
 echo "--- Configure Sentry ---"
 
@@ -27,9 +17,6 @@ cp -fv "${SENTRY_DATA_PATH}"/self_hosted/.env "${SENTRY_DATA_PATH}"/self_hosted/
 
 echo "      - Adding additional config to .env"
 echo -e "${SENTRY_ENV_CUSTOM:-}" >>"${SENTRY_DATA_PATH}"/self_hosted/.env.custom
-
-echo "      - Patch Docker Compose file to read .env.custom on all services."
-sed -i "/x-restart-policy: &restart_policy/a \ \ env_file: [.env.custom]" "${SENTRY_DATA_PATH}/self_hosted/docker-compose.yml"
 ########### END .env ###########
 
 ########### START sentry.conf.py ###########

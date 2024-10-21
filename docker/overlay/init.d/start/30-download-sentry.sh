@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 11:14:56 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 21st October 2024 12:29:14 pm
+# Last Modified: Monday, 21st October 2024 10:52:41 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -50,7 +50,7 @@ if [ "${PREVIOUS_SENTRY_VERSION:-}" != "${SENTRY_VERSION}" ]; then
     cd ${SENTRY_DATA_PATH}/self_hosted
 
     echo "  - Pulling down any existing Sentry stack services..."
-    ${docker_cmd:?} compose down --remove-orphans
+    ${docker_compose_cmd:?} down --remove-orphans
 
     echo "  - Backup Docker volumes..."
     volumes="sentry-data sentry-postgres sentry-redis sentry-zookeeper sentry-kafka sentry-clickhouse sentry-symbolicator"
