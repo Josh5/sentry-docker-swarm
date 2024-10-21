@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:19:15 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 21st October 2024 11:24:40 pm
+# Last Modified: Tuesday, 22nd October 2024 1:00:34 am
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -13,6 +13,25 @@
 echo "--- Create custom docker-compose.custom.yml file ---"
 echo "" >"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
 compose_services="$(${docker_cmd:?} compose -f ./docker-compose.yml config --services)"
+
+# Create custom network
+echo "  - Ensure custom sentry network '${custom_docker_network_name:?}' exists."
+existing_sentry_stack_network=$(${docker_cmd:?} network ls 2>/dev/null | grep "${custom_docker_network_name:?}" || echo "")
+if [ "X${existing_sentry_stack_network}" = "X" ]; then
+    echo "    - Creating private network for sentry services..."
+    ${docker_cmd:?} network create -d bridge "${custom_docker_network_name:?}"
+else
+    echo "    - A private network for the sentry services named ${custom_docker_network_name:?} already exists."
+fi
+echo "  - Configure all services to use the custom external docker network."
+cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
+# Use a custom external network as the stacks default nework
+networks:
+  default:
+    name: ${custom_docker_network_name}
+    external: true
+
+EOF
 
 # Use env_file
 echo "  - Configure all services to read .env.custom"
@@ -42,8 +61,8 @@ x-logging-base: &logging-base
   logging:
     driver: fluentd
     options:
-      fluentd-address: ${FLUENTD_ADDRESS:?}
-      tag: ${FLUENTD_TAG:?}
+      fluentd-address: localhost:24224
+      tag: sentry
 
 EOF
 else

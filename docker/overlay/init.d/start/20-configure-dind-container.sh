@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:37:05 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 21st October 2024 12:30:22 pm
+# Last Modified: Tuesday, 22nd October 2024 1:52:43 am
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -54,18 +54,18 @@ fi
 
 echo "  - Ensure DIND container is running"
 if ! docker ps | grep -q ${dind_continer_name}; then
-    echo "    - Fetching latest docker in docker image 'docker:${docker_version:?}-dind' ---"
+    echo "    - Fetching latest docker in docker image 'docker:${docker_version:?}-dind'"
     docker pull docker:${docker_version:?}-dind
     echo
 
-    echo "    - Creating DIND container ---"
+    echo "    - Creating DIND container"
     rm -rf ${dind_run_path}/*
     ${DIND_RUN_CMD:?}
-    sleep 10 &
+    sleep 5 &
     wait $!
     echo
 else
-    echo "    - DIND container already running ---"
+    echo "    - DIND container already running"
 fi
 
 echo "--- Install Sentry installation and configuration dependencies into DIND container ---"

@@ -5,7 +5,7 @@
 # File Created: Friday, 18th October 2024 5:05:51 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 21st October 2024 10:52:36 pm
+# Last Modified: Monday, 21st October 2024 11:52:03 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 set -eu
@@ -18,6 +18,10 @@ export dind_continer_name="sentry-swarm-dind"
 export dind_bridge_network_name="sentry-swarm-dind-net"
 export dind_cache_path="${SENTRY_DATA_PATH:?}/docker-cache"
 export dind_run_path="${SENTRY_DATA_PATH:?}/docker-sock"
+export fluentd_image_tag="v1.17-debian-1"
+export fluentd_continer_name="sentry-swarm-fluentd"
+export fluentd_data_path="${SENTRY_DATA_PATH}/fluentd"
+export custom_docker_network_name="sentry-private-net"
 export cmd_prefix="docker exec --workdir=${SENTRY_DATA_PATH:?}/self_hosted ${dind_continer_name:?}"
 export docker_cmd="${cmd_prefix:?} docker"
 export docker_compose_cmd="${cmd_prefix:?} docker compose"
