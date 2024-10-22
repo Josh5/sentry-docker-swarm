@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 9:46:22 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Tuesday, 22nd October 2024 2:59:36 pm
+# Last Modified: Tuesday, 22nd October 2024 4:45:04 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -45,6 +45,7 @@ if [ "${CUSTOM_LOG_DRIVER:-}" = "fluentd" ]; then
     echo "  - Setting tag prefix ${FLUENTD_TAG:-sentry} in fluentd config."
     sed -i "s|<FLUENTD_TAG>|${FLUENTD_TAG:-sentry}|" "${fluentd_data_path:?}/etc/fluent.conf"
 
+    remote_output_configured="false"
     if [ "X${FLUENTD_FORWARD_ADDRESS:-}" != "X" ]; then
         echo "  - Configure a forward output in fluentd config."
         # Split the address into host and port
@@ -101,6 +102,7 @@ EOF
         }' "${fluentd_data_path:?}/etc/fluent.conf" >"${fluentd_data_path:?}/etc/fluent.conf.tmp"
         mv "${fluentd_data_path:?}/etc/fluent.conf.tmp" "${fluentd_data_path:?}/etc/fluent.conf"
         rm "$fluentd_forward_tmp"
+        remote_output_configured="true"
     else
         echo "  - No forward output created for fluentd config."
     fi
@@ -146,9 +148,39 @@ EOF
         }' "${fluentd_data_path:?}/etc/fluent.conf" >"${fluentd_data_path:?}/etc/fluent.conf.tmp"
         mv "${fluentd_data_path:?}/etc/fluent.conf.tmp" "${fluentd_data_path:?}/etc/fluent.conf"
         rm "$fluentd_http_tmp"
+        remote_output_configured="true"
     else
         echo "  - No http output created for fluentd config."
     fi
+
+    fluentd_stdout_tmp=$(mktemp)
+    if [ "${remote_output_configured:-}" != "true" ]; then
+        echo "  - Configure a stdout output as the only output in fluentd config."
+        # Split the address into host and port
+        cat <<EOF >"$fluentd_stdout_tmp"
+        <store>
+            @type stdout
+        </store>
+EOF
+    else
+        echo "  - Configure a stdout output as the fallback output in fluentd config."
+        cat <<EOF >"$fluentd_stdout_tmp"
+        <store ignore_if_prev_success ignore_error>
+            @type stdout
+        </store>
+EOF
+    fi
+    awk -v fwd_config="$fluentd_stdout_tmp" '
+    {
+        if ($0 ~ /# <FLUENTD_STDOUT_CONFIG>/) {
+            while ((getline line < fwd_config) > 0) print line;
+            close(fwd_config)
+        } else {
+            print $0;
+        }
+    }' "${fluentd_data_path:?}/etc/fluent.conf" >"${fluentd_data_path:?}/etc/fluent.conf.tmp"
+    mv "${fluentd_data_path:?}/etc/fluent.conf.tmp" "${fluentd_data_path:?}/etc/fluent.conf"
+    rm "$fluentd_stdout_tmp"
 
     echo "  - Writing fluentd container config to env file"
     echo "" >${fluentd_data_path:?}/new-fluentd-docker-run-config.env
