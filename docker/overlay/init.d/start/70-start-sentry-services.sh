@@ -5,13 +5,13 @@
 # File Created: Monday, 21st October 2024 11:40:21 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 4th November 2024 12:39:04 pm
+# Last Modified: Monday, 4th November 2024 12:53:36 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
 echo "--- Checking if Deployment ID of Sentry services has changed ---"
 if [ "$(cat ${SENTRY_DATA_PATH:?}/self_hosted/.z-deployment-id.txt 2>/dev/null)" != "${DEPLOYMENT_ID:-}" ]; then
-    echo "  - Deployment ID '${DEPLOYMENT_ID:-}' has not changed since last run. Previous ID was '$(cat ${SENTRY_DATA_PATH:?}/self_hosted/.z-deployment-id.txt 2>/dev/null)'. Stopping Sentry stack."
+    echo "  - Deployment ID '${DEPLOYMENT_ID:-}' has changed since last run. Previous ID was '$(cat ${SENTRY_DATA_PATH:?}/self_hosted/.z-deployment-id.txt 2>/dev/null)'. Stopping Sentry stack."
     ${docker_compose_cmd:?} down --remove-orphans
 else
     echo "  - Deployment ID '${DEPLOYMENT_ID:-}' has not changed."
