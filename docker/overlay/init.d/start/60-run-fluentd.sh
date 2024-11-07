@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 9:46:22 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Tuesday, 22nd October 2024 4:45:04 pm
+# Last Modified: Thursday, 7th November 2024 4:15:17 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -58,6 +58,7 @@ if [ "${CUSTOM_LOG_DRIVER:-}" = "fluentd" ]; then
             send_timeout          20s
             recover_wait          10s
             hard_timeout          30s
+            require_ack_response  true
             <buffer>
                 @type             file
                 path              /fluentd/storage/buffer
