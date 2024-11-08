@@ -5,12 +5,17 @@
 # File Created: Monday, 21st October 2024 10:19:15 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Tuesday, 22nd October 2024 3:29:04 pm
+# Last Modified: Saturday, 9th November 2024 10:40:42 am
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
+echo "--- Create backup of original docker-compose.yml file ---"
+if [ ! -f "${SENTRY_DATA_PATH}/self_hosted/docker-compose.bak.yml" ]; then
+    cp -f "${SENTRY_DATA_PATH}/self_hosted/docker-compose.yml" "${SENTRY_DATA_PATH}/self_hosted/docker-compose.bak.yml"
+fi
+cp -f "${SENTRY_DATA_PATH}/self_hosted/docker-compose.bak.yml" "${SENTRY_DATA_PATH}/self_hosted/docker-compose.yml"
 
-echo "--- Create custom docker-compose.custom.yml file ---"
+echo "--- Create custom docker-compose.custom.yml file for new config ---"
 echo "" >"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
 echo "" >"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
 compose_services="$(${docker_cmd:?} compose -f ./docker-compose.yml config --services)"
@@ -43,7 +48,6 @@ x-env-import: &env-import
 
 EOF
 echo "x-env-import/env_file/.env.custom" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
-
 
 # Logging driver
 echo "  - Configure services logging driver"
@@ -110,6 +114,10 @@ done
 echo "  - Set compose command"
 export docker_compose_cmd="${cmd_prefix:?} docker compose -f ./docker-compose.yml -f ./docker-compose.custom.yml"
 
+# Modify consuer for snuba
+# REF: https://github.com/getsentry/snuba/issues/5707
+sed -ie "s/rust-consumer/consumer/g" "${SENTRY_DATA_PATH}/self_hosted/docker-compose.yml"
+echo "snuba-patch - https://github.com/getsentry/snuba/issues/5707" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
 
 if ! cmp -s "${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt" "${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.txt"; then
     echo "  - A breaking change was made to the docker compose stack. Stopping it before continuing to avoid issues while applying updates."
