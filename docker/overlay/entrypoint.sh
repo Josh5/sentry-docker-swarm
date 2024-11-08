@@ -5,7 +5,7 @@
 # File Created: Friday, 18th October 2024 5:05:51 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 21st October 2024 11:52:03 pm
+# Last Modified: Friday, 8th November 2024 10:08:23 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 set -eu
@@ -14,6 +14,9 @@ set -eu
 # --- Export config
 #
 export docker_version=$(docker --version | grep -oE "[0-9]+\.[0-9]+\.[0-9]+")
+if [ "X${DOCKER_VERSION:-}" = "X" ]; then
+    export docker_version=${DOCKER_VERSION:?}
+fi
 export dind_continer_name="sentry-swarm-dind"
 export dind_bridge_network_name="sentry-swarm-dind-net"
 export dind_cache_path="${SENTRY_DATA_PATH:?}/docker-cache"
