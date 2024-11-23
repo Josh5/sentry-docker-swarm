@@ -129,7 +129,7 @@ networks:
 services:
   # -- MAIN SERVICE --
   manager:
-    image: ghcr.io/josh5/sentry-docker-swarm@sha256:b2eea8577361904dafbc2951a06102ff0192b3a16ccf8e8d6fbc3eeb5a0b6762
+    image: ghcr.io/josh5/sentry-docker-swarm@sha256:f13a46e3938b8c077f3c7afe02a629a04bcaa90e6acf1e820dfa78615775723e
     deploy:
       replicas: 1
       restart_policy:
