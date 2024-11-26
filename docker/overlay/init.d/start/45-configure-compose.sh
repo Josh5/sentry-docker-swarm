@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 ###
-# File: 41-configure-compose.sh
+# File: 45-configure-compose.sh
 # Project: start
 # File Created: Monday, 21st October 2024 10:19:15 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Saturday, 9th November 2024 10:40:42 am
+# Last Modified: Tuesday, 26th November 2024 11:55:59 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -52,7 +52,7 @@ echo "x-env-import/env_file/.env.custom" >>"${SENTRY_DATA_PATH}/self_hosted/.z-c
 # Logging driver
 echo "  - Configure services logging driver"
 if [ "${CUSTOM_LOG_DRIVER:-}" = "json-file" ]; then
-    echo "      - Configure Docker Compose to use json-file log driver for all services."
+    echo "    - Configure Docker Compose to use json-file log driver for all services."
     cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
 x-logging-base: &logging-base
   logging:
@@ -64,7 +64,7 @@ x-logging-base: &logging-base
 EOF
     echo "x-logging-base/logging/driver/json-file/max-size/10m/max-file/10" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
 elif [ "${CUSTOM_LOG_DRIVER:-}" = "fluentd" ]; then
-    echo "      - Configure Docker Compose to use fluentd log driver for all services."
+    echo "    - Configure Docker Compose to use fluentd log driver for all services."
     cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
 x-logging-base: &logging-base
   logging:
@@ -76,7 +76,7 @@ x-logging-base: &logging-base
 EOF
     echo "x-logging-base/logging/driver/fluentd/fluentd-address/localhost:24224/tag/sentry" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
 else
-    echo "      - Configure Docker Compose to use local log driver for all services."
+    echo "    - Configure Docker Compose to use local log driver for all services."
     cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
 x-logging-base: &logging-base
   logging:
@@ -102,7 +102,7 @@ echo "x-mem-limits/mem_limit/${DIND_MEMLIMIT:-0}" >>"${SENTRY_DATA_PATH}/self_ho
 echo "  - Write custom config to all services"
 echo "services:" >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
 for service in ${compose_services:?}; do
-    echo "      - Applying to service '${service:?}'."
+    echo "    - Applying to service '${service:?}'."
     cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
   ${service:?}:
     <<: 
@@ -111,6 +111,33 @@ for service in ${compose_services:?}; do
       - *mem-limits
 EOF
 done
+
+# Configure logging service
+echo "  - Configure fluentd sidecar service"
+if [ "${CUSTOM_LOG_DRIVER:-}" = "fluentd" ]; then
+    echo "    - Adding custom fluentd container to services."
+    cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
+
+  fluentd:
+    image: fluent/fluentd:${fluentd_image_tag:?}
+    mem_limit: 256M
+    environment:
+      FLUENTD_TAG: ${FLUENTD_TAG:-sentry}
+    volumes:
+      - ${fluentd_data_path:?}/log:/fluentd/log
+      - ${fluentd_data_path:?}/etc:/fluentd/etc
+      - ${fluentd_data_path:?}/storage:/fluentd/storage
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+
+EOF
+    echo "services/fluentd/24224" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
+else
+    echo "    - Manager not configured to run a fluentd logging service. Not adding fluentd container to stack."
+fi
+
+# Set the docker compose command
 echo "  - Set compose command"
 export docker_compose_cmd="${cmd_prefix:?} docker compose -f ./docker-compose.yml -f ./docker-compose.custom.yml"
 

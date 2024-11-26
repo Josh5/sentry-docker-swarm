@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 ###
-# File: 60-run-fluentd.sh
+# File: 41-configure-fluentd-logging.sh
 # Project: start
 # File Created: Monday, 21st October 2024 9:46:22 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Thursday, 7th November 2024 4:15:17 pm
+# Last Modified: Tuesday, 26th November 2024 11:58:42 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -18,17 +18,6 @@ if [ "${CUSTOM_LOG_DRIVER:-}" = "fluentd" ]; then
         ${fluentd_data_path:?}/etc \
         ${fluentd_data_path:?}/storage
     chown -R 999:999 ${fluentd_data_path:?}
-    FLUENTD_RUN_CMD="${docker_cmd:?} run -d --rm --name ${fluentd_continer_name:?} \
-        --memory 256m \
-        --env FLUENTD_TAG=${FLUENTD_TAG:-sentry} \
-        --volume ${fluentd_data_path:?}/log:/fluentd/log \
-        --volume ${fluentd_data_path:?}/etc:/fluentd/etc \
-        --volume ${fluentd_data_path:?}/storage:/fluentd/storage \
-        --network ${custom_docker_network_name:?} \
-        --network-alias ${fluentd_continer_name:?} \
-        --publish 24224:24224 \
-        --publish 24224:24224/udp \
-        fluent/fluentd:${fluentd_image_tag:?}"
 
     echo "  - Installing fluentd config"
     cp -fv /defaults/fluentd/fluent.template.conf ${fluentd_data_path:?}/etc/fluent.conf
@@ -186,9 +175,9 @@ EOF
     echo "  - Writing fluentd container config to env file"
     echo "" >${fluentd_data_path:?}/new-fluentd-docker-run-config.env
     echo "fluentd_image_tag=${fluentd_image_tag:?}" >>${fluentd_data_path:?}/new-fluentd-docker-run-config.env
-    echo "FLUENTD_RUN_CMD=${FLUENTD_RUN_CMD:?}" >>${fluentd_data_path:?}/new-fluentd-docker-run-config.env
     echo "fluentd_config_checksum=$(md5sum ${fluentd_data_path:?}/etc/fluent.conf)" >>${fluentd_data_path:?}/new-fluentd-docker-run-config.env
 
+    # TODO: -- Remove all docker_cmd lines below this line --
     echo "  - Checking if config has changed since last run"
     if ! cmp -s "${fluentd_data_path:?}/new-fluentd-docker-run-config.env" "${fluentd_data_path:?}/current-fluentd-docker-run-config.env"; then
         echo "    - Fluentd container config has changed. Stopping up old fluentd container due to update."
@@ -197,22 +186,6 @@ EOF
         mv -fv "${fluentd_data_path:?}/new-fluentd-docker-run-config.env" "${fluentd_data_path:?}/current-fluentd-docker-run-config.env"
     else
         echo "    - Fluentd container config has not changed."
-    fi
-
-    echo "  - Ensure fluentd container is running"
-    if ! ${docker_cmd:?} ps | grep -q ${fluentd_continer_name}; then
-        echo "    - Fetching latest fluentd image 'fluent/fluentd:${fluentd_image_tag:?}'"
-        ${docker_cmd:?} pull fluent/fluentd:${fluentd_image_tag:?}
-        echo
-
-        echo "    - Creating fluentd container ---"
-        ${docker_cmd:?} rm ${fluentd_continer_name} &>/dev/null || true
-        ${FLUENTD_RUN_CMD:?}
-        sleep 5 &
-        wait $!
-        echo
-    else
-        echo "    - The fluentd container already running ---"
     fi
 else
     echo "  - No fluentd service required as the 'CUSTOM_LOG_DRIVER' env variable is configured as '${CUSTOM_LOG_DRIVER:-local}'"

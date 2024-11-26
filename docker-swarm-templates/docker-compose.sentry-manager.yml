@@ -12,6 +12,7 @@
 # ---------------
 # Config (paste into portainer advance env text input):
 #
+# <config_start>
 #   #@ Placement
 #   #-    Configure a placement constraint to where the container will be run.
 #   #-    Examples:
@@ -22,7 +23,7 @@
 #   #@ Traefik Config
 #   #-  - TRAEFIK_DOMAIN -
 #   #-    The Domiain where this is accessed at.
-#   TRAEFIK_DOMAIN=swarmpit.domain.com
+#   TRAEFIK_DOMAIN=sentry.domain.com
 #   #@ Container Config
 #   #-  - SENTRY_DATA_PATH -
 #   SENTRY_DATA_PATH=/mnt/user/appdata/sentry
@@ -114,6 +115,16 @@
 #   #-  - FLUENTD_ADDITIONAL_SOURCE_TAGS -
 #   #     A comma separated list of key:value pairs to append to each log line
 #   FLUENTD_ADDITIONAL_SOURCE_TAGS=env:sentry-eu,region:eu-west-1
+# <config_end>
+#
+# ---------------
+# Setup Script
+#
+# <script_start>
+#   > mkdir -p ${SENTRY_DATA_PATH:?}
+#   > sudo chmod 755 ${SENTRY_DATA_PATH:?}
+#   > echo && echo "$(cd "${SENTRY_DATA_PATH:?}" && pwd)" && ls -la ${SENTRY_DATA_PATH:?}
+# <script_end>
 #
 # ---------------
 ---
