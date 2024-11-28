@@ -70,6 +70,9 @@
 #   #-  - EXEC_NUCLEAR_CLEAN -
 #   #     Force a clear of the kafka and zookeeper volumes to fix any issues
 #   EXEC_NUCLEAR_CLEAN=false
+#   #-  - BACKUP_VOLUMES_ON_UPDATE -
+#   #     Create a volume backup prior to installing an update. Note, this could use a lot of disk space. Ensure you have enough available.
+#   BACKUP_VOLUMES_ON_UPDATE=false
 #   #-  - SKIP_ADMIN_USER_CREATE -
 #   #     Skip the command to generate the initial Admin user
 #   SKIP_ADMIN_USER_CREATE=false
@@ -189,6 +192,7 @@ services:
       SENTRY_CONF_CUSTOM: ${SENTRY_CONF_CUSTOM}
       SENTRY_ENV_CUSTOM: ${SENTRY_ENV_CUSTOM}
       SENTRY_DATA_PATH: ${SENTRY_DATA_PATH}
+      BACKUP_VOLUMES_ON_UPDATE: ${BACKUP_VOLUMES_ON_UPDATE:-false}
       EXEC_NUCLEAR_CLEAN: ${EXEC_NUCLEAR_CLEAN:-false}
       SKIP_ADMIN_USER_CREATE: ${SKIP_ADMIN_USER_CREATE:-false}
       ALWAYS_FORCE_RECREATE: ${ALWAYS_FORCE_RECREATE:-false}
