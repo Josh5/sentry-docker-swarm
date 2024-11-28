@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 11:14:56 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Friday, 29th November 2024 12:51:13 am
+# Last Modified: Friday, 29th November 2024 1:00:03 am
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -64,11 +64,11 @@ if [ "${PREVIOUS_SENTRY_VERSION:-}" != "${SENTRY_VERSION}" ]; then
                 echo "  Volume ${volume_name} not found, skipping backup."
             fi
         done
-    fi
 
-    echo "  - Install volumes restore script..."
-    echo "${RESTORE_VOLUMES_SCRIPT:?}" >"${SENTRY_DATA_PATH}"/update_backups/self_hosted-v${PREVIOUS_SENTRY_VERSION:-UNKNOWN}-${date_string}/volumes/restore-volumes.sh
-    chmod +x "${SENTRY_DATA_PATH}"/update_backups/self_hosted-v${PREVIOUS_SENTRY_VERSION:-UNKNOWN}-${date_string}/volumes/restore-volumes.sh
+        echo "  - Install volumes restore script..."
+        echo "${RESTORE_VOLUMES_SCRIPT:?}" >"${SENTRY_DATA_PATH}"/update_backups/self_hosted-v${PREVIOUS_SENTRY_VERSION:-UNKNOWN}-${date_string}/volumes/restore-volumes.sh
+        chmod +x "${SENTRY_DATA_PATH}"/update_backups/self_hosted-v${PREVIOUS_SENTRY_VERSION:-UNKNOWN}-${date_string}/volumes/restore-volumes.sh
+    fi
 
     echo "  - Cleaning out old docker images..."
     ${docker_cmd:?} image prune --all --force
