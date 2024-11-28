@@ -5,7 +5,7 @@
 # File Created: Friday, 18th October 2024 5:05:51 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Friday, 8th November 2024 10:08:23 pm
+# Last Modified: Friday, 29th November 2024 12:30:19 am
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 set -eu
@@ -88,7 +88,12 @@ _stack_monitor() {
 
         # Check if the main services have exited
         echo "  - Check that the main services are still up ---"
-        services="$(${docker_compose_cmd:?} config --services | grep -vE "${ignored_services:?}")"
+        echo "--- Starting Sentry services ---"
+        if [ "${WEB_ONLY_MAINTENANCE_MODE:-}" = "true" ]; then
+            services="web nginx"
+        else
+            services="$(${docker_compose_cmd:?} config --services | grep -vE "${ignored_services:?}")"
+        fi
         # Loop through each service to check its status
         for service in $services; do
             # Use docker compose ps to check if the service is running
