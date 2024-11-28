@@ -76,6 +76,9 @@
 #   #-  - ALWAYS_FORCE_RECREATE -
 #   #     Add --force-recreate flag to docker compose up
 #   ALWAYS_FORCE_RECREATE=false
+#   #-  - WEB_ONLY_MAINTENANCE_MODE -
+#   #     Stop all services and only run the web service and required dependencies as a "maintenance mode"
+#   WEB_ONLY_MAINTENANCE_MODE=false
 #   #-  - DEPLOYMENT_ID -
 #   #     If this is modified between manager starts, it will stop all Sentry services and restart them.
 #   DEPLOYMENT_ID=default
@@ -147,7 +150,7 @@ networks:
 services:
   # -- MAIN SERVICE --
   manager:
-    image: ghcr.io/josh5/sentry-docker-swarm@sha256:495db030f438d919c340a1d3d7183a418905a73892c040f34eeb896ac1db49f1
+    image: ghcr.io/josh5/sentry-docker-swarm@sha256:f2f9e65f5b0741589d0f887ef2b3e63f702ef51b8e052cd4022ed1781ecc51ac
     deploy:
       replicas: 1
       restart_policy:
@@ -189,6 +192,7 @@ services:
       EXEC_NUCLEAR_CLEAN: ${EXEC_NUCLEAR_CLEAN:-false}
       SKIP_ADMIN_USER_CREATE: ${SKIP_ADMIN_USER_CREATE:-false}
       ALWAYS_FORCE_RECREATE: ${ALWAYS_FORCE_RECREATE:-false}
+      WEB_ONLY_MAINTENANCE_MODE: ${WEB_ONLY_MAINTENANCE_MODE:-false}
       DEPLOYMENT_ID: ${DEPLOYMENT_ID:-default}
       KEEP_ALIVE: ${KEEP_ALIVE:-true}
       DIND_CPU_SHARES: ${DIND_CPU_SHARES:-512}
