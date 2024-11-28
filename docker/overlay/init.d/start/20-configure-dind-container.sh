@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:37:05 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Tuesday, 22nd October 2024 1:52:43 am
+# Last Modified: Thursday, 28th November 2024 4:47:17 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -23,8 +23,12 @@ echo
 echo "  - Configure DIND container run aliases..."
 mkdir -p ${dind_cache_path:?}
 mkdir -p ${dind_run_path:?}
+# Calculate 90% of the available vCPUs
+DIND_CPULIMIT=$(echo "$(nproc) * 0.9" | bc)
 DIND_RUN_CMD="docker run --privileged -d --rm --name ${dind_continer_name:?} \
     --memory ${DIND_MEMLIMIT:-0} \
+    --cpus $(printf "%.1f" "${DIND_CPULIMIT:?}") \
+    --cpu-shares ${DIND_CPU_SHARES:-512} \
     --env DOCKER_DRIVER=overlay2 \
     --volume ${dind_cache_path:?}:/var/lib/docker \
     --volume ${dind_run_path:?}:/var/run \

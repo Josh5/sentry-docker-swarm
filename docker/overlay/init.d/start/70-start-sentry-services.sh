@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 11:40:21 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 4th November 2024 12:53:36 pm
+# Last Modified: Thursday, 28th November 2024 5:07:21 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -15,17 +15,24 @@ if [ "$(cat ${SENTRY_DATA_PATH:?}/self_hosted/.z-deployment-id.txt 2>/dev/null)"
     ${docker_compose_cmd:?} down --remove-orphans
 else
     echo "  - Deployment ID '${DEPLOYMENT_ID:-}' has not changed."
+    if [ "${ALWAYS_FORCE_RECREATE:-}" = "true" ]; then
+        echo "  - Stopping Sentry stack due to 'ALWAYS_FORCE_RECREATE' being set to '${ALWAYS_FORCE_RECREATE:-}'."
+        ${docker_compose_cmd:?} down --remove-orphans
+    fi
 fi
 echo "${DEPLOYMENT_ID:-}" >"${SENTRY_DATA_PATH:?}/self_hosted/.z-deployment-id.txt"
 
-echo "--- Starting Sentry services ---"
-if [ "${ALWAYS_FORCE_RECREATE:-}" = "true" ]; then
-    echo "  - Forcing recreation of whole stack due to 'ALWAYS_FORCE_RECREATE' being set to '${ALWAYS_FORCE_RECREATE:-}'."
-    ${docker_compose_cmd:?} --env-file .env.custom up --detach --remove-orphans --force-recreate
+echo "--- Starting Logging service ---"
+if [ "${CUSTOM_LOG_DRIVER:-}" = "fluentd" ]; then
+    echo "  - Starting fluentd service (with force-recreate)"
+    ${docker_compose_cmd:?} --env-file .env.custom up --detach --force-recreate fluentd
 else
-    echo "  - Starting existing stack"
-    ${docker_compose_cmd:?} --env-file .env.custom up --detach --remove-orphans
-    echo "  - Forcing recreation of nginx proxy in stack"
-    ${docker_compose_cmd:?} --env-file .env.custom up --detach --force-recreate nginx
+    echo "  - No custom logging service configured. Nothing to do."
 fi
+
+echo "--- Starting Sentry services ---"
+echo "  - Starting existing stack"
+${docker_compose_cmd:?} --env-file .env.custom up --detach --remove-orphans
+echo "  - Forcing recreation of nginx proxy in stack"
+${docker_compose_cmd:?} --env-file .env.custom up --detach --force-recreate nginx
 echo
