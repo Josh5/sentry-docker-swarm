@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 11:42:08 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 21st October 2024 10:53:15 pm
+# Last Modified: Friday, 29th November 2024 1:15:12 am
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -17,7 +17,7 @@ wait $!
 echo
 
 echo "--- Configure Redis memory usage ---"
-if [ "${REDIS_MEMLIMIT}" != "0" ]; then
+if [ "${REDIS_MEMLIMIT:-}" != "0" ]; then
     echo "  - Configure Redis maxmemory-policy to volatile-ttl"
     ${docker_compose_cmd:?} exec redis redis-cli CONFIG SET maxmemory-policy volatile-ttl
     echo "  - Configure Redis maxmemory to ${REDIS_MEMLIMIT}"

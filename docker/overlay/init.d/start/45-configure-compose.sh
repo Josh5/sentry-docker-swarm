@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:19:15 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Thursday, 28th November 2024 11:59:36 pm
+# Last Modified: Friday, 29th November 2024 1:19:46 am
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -95,8 +95,12 @@ cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
 x-mem-limits: &mem-limits
   mem_limit: ${DIND_MEMLIMIT:-0}
 
+x-mem-limits-redis: &mem-limits-redis
+  mem_limit: ${REDIS_MEMLIMIT:-0}
+
 EOF
 echo "x-mem-limits/mem_limit/${DIND_MEMLIMIT:-0}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
+echo "x-mem-limits-redis/mem_limit/${REDIS_MEMLIMIT:-0}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
 
 # CPU limits
 CPU_PERIOD=100000
@@ -130,8 +134,13 @@ for service in ${compose_services:?}; do
     <<: 
       - *env-import
       - *logging-base
-      - *mem-limits
 EOF
+    # Apply memory limits. Some services have custom memory limits
+    if [[ "${service:?}" == "redis" ]]; then
+        echo "      - *mem-limits-redis" >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
+    else
+        echo "      - *mem-limits" >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
+    fi
     # Check if the service name is either the web, nginx or relay. Give these a higher cpu share.
     # For all other services, limit them to whatever is configured with DIND_CPU_SHARES and a cpu.max of 75% of total CPU on host.
     if [[ "${service:?}" == "web" || "${service:?}" == "nginx" || "${service:?}" == "relay" ]]; then
