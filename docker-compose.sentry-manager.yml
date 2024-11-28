@@ -70,6 +70,9 @@
 #   #-  - EXEC_NUCLEAR_CLEAN -
 #   #     Force a clear of the kafka and zookeeper volumes to fix any issues
 #   EXEC_NUCLEAR_CLEAN=false
+#   #-  - BACKUP_VOLUMES_ON_UPDATE -
+#   #     Create a volume backup prior to installing an update. Note, this could use a lot of disk space. Ensure you have enough available.
+#   BACKUP_VOLUMES_ON_UPDATE=false
 #   #-  - SKIP_ADMIN_USER_CREATE -
 #   #     Skip the command to generate the initial Admin user
 #   SKIP_ADMIN_USER_CREATE=false
@@ -150,7 +153,7 @@ networks:
 services:
   # -- MAIN SERVICE --
   manager:
-    image: ghcr.io/josh5/sentry-docker-swarm@sha256:f2f9e65f5b0741589d0f887ef2b3e63f702ef51b8e052cd4022ed1781ecc51ac
+    image: ghcr.io/josh5/sentry-docker-swarm@sha256:75ee0f19344cfd665ec9e9385c2d4f328b8590167d300cf8a09c44448ada073b
     deploy:
       replicas: 1
       restart_policy:
@@ -189,6 +192,7 @@ services:
       SENTRY_CONF_CUSTOM: ${SENTRY_CONF_CUSTOM}
       SENTRY_ENV_CUSTOM: ${SENTRY_ENV_CUSTOM}
       SENTRY_DATA_PATH: ${SENTRY_DATA_PATH}
+      BACKUP_VOLUMES_ON_UPDATE: ${BACKUP_VOLUMES_ON_UPDATE:-false}
       EXEC_NUCLEAR_CLEAN: ${EXEC_NUCLEAR_CLEAN:-false}
       SKIP_ADMIN_USER_CREATE: ${SKIP_ADMIN_USER_CREATE:-false}
       ALWAYS_FORCE_RECREATE: ${ALWAYS_FORCE_RECREATE:-false}
