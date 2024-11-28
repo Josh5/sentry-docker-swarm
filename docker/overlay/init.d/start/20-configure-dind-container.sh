@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:37:05 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Thursday, 28th November 2024 4:47:17 pm
+# Last Modified: Thursday, 28th November 2024 11:39:47 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -24,7 +24,7 @@ echo "  - Configure DIND container run aliases..."
 mkdir -p ${dind_cache_path:?}
 mkdir -p ${dind_run_path:?}
 # Calculate 90% of the available vCPUs
-DIND_CPULIMIT=$(echo "$(nproc) * 0.9" | bc)
+DIND_CPULIMIT=$(echo "$(nproc) * 0.8" | bc)
 DIND_RUN_CMD="docker run --privileged -d --rm --name ${dind_continer_name:?} \
     --memory ${DIND_MEMLIMIT:-0} \
     --cpus $(printf "%.1f" "${DIND_CPULIMIT:?}") \
@@ -74,7 +74,7 @@ fi
 
 echo "--- Install Sentry installation and configuration dependencies into DIND container ---"
 echo "  - Install bash and coreutils packages in DIND container required for install script"
-${cmd_prefix:?} sh -c "apk add bash coreutils"
+${cmd_prefix:?} sh -c "apk add bash coreutils cgroup-tools"
 echo "  - Install yq tool to endit Sentry config.yml"
 wget -q "https://github.com/mikefarah/yq/releases/download/v4.43.1/yq_linux_amd64" \
     -O "/usr/bin/yq"
