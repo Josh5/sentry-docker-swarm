@@ -95,6 +95,10 @@
 #   #     Set this to 0 to apply no memory limit. Use a suffix of b, k, m, g, to indicate bytes, kilobytes, megabytes, or gigabytes.
 #   #     NOTE: This must be less than DIND_MEMLIMIT if 0 is not set.
 #   REDIS_MEMLIMIT=0
+#   #-  - PATCH_SNUBA -
+#   #     Patch snuba replacing snuba 'rust-consumer' with 'consumer'"
+#   #     REF: https://github.com/getsentry/snuba/issues/5707
+#   PATCH_SNUBA=false
 #   #-  - CUSTOM_LOG_DRIVER -
 #   #     Configure the docker stack to use a custom logging driver. Options "local", "json-file", "fluentd"
 #   CUSTOM_LOG_DRIVER=fluentd
@@ -132,7 +136,6 @@
 #
 # ---------------
 ---
-
 networks:
   swarm-public:
     external: true
@@ -191,6 +194,7 @@ services:
       DIND_CPU_SHARES: ${DIND_CPU_SHARES:-512}
       DIND_MEMLIMIT: ${DIND_MEMLIMIT:-0}
       REDIS_MEMLIMIT: ${REDIS_MEMLIMIT:-0}
+      PATCH_SNUBA: ${PATCH_SNUBA:-true}
       CUSTOM_LOG_DRIVER: ${CUSTOM_LOG_DRIVER:-local}
       FLUENTD_FORWARD_ADDRESS: ${FLUENTD_FORWARD_ADDRESS:-}
       FLUENTD_FORWARD_SHARED_KEY: ${FLUENTD_FORWARD_SHARED_KEY:-1234567890qwertyuiop}
@@ -218,7 +222,7 @@ services:
       placement:
         constraints:
           - ${PLACEMENT_CONSTRAINT}
-      labels: 
+      labels:
         #### -- Enable traefik router for this service
         - "traefik.enable=true"
         - "traefik.http.services.swarm-sentry.loadbalancer.server.port=80"
