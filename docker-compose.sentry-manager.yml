@@ -92,6 +92,10 @@
 #   #     Sets a CPU shares limit on the Sentry DIND container. Nested services will not be able to exceed this value.
 #   #     Set this to 1024 to apply system defaults. If left empty, a shares value of 512 will be applied.
 #   DIND_CPU_SHARES=512
+#   #-  - DIND_CPU_PERCENT -
+#   #     Impose a CPU CFS quota on the container calculated by the number of CPUs available acting as the effective CPU ceiling.
+#   #     Valid values should within the range of 1-100. If left empty, value of 75 will be applied.
+#   DIND_CPU_PERCENT=75
 #   #-  - DIND_MEMLIMIT -
 #   #     Sets a memory limit on the Sentry DIND container. Nested services will not be able to exceed this value.
 #   #     Set this to 0 to apply no memory limit. Use a suffix of b, k, m, g, to indicate bytes, kilobytes, megabytes, or gigabytes.
@@ -153,7 +157,7 @@ networks:
 services:
   # -- MAIN SERVICE --
   manager:
-    image: ghcr.io/josh5/sentry-docker-swarm@sha256:aa45bdee8d2f8dc604e27a2db54f31d445f1d2da7483af9482f80a48b004ceb8
+    image: ghcr.io/josh5/sentry-docker-swarm@sha256:7ecf0419b5af6665b84fac5097ee86c9914cbe7b4db9486e694c9cfa7fd81bda
     deploy:
       replicas: 1
       restart_policy:
@@ -200,6 +204,7 @@ services:
       DEPLOYMENT_ID: ${DEPLOYMENT_ID:-default}
       KEEP_ALIVE: ${KEEP_ALIVE:-true}
       DIND_CPU_SHARES: ${DIND_CPU_SHARES:-512}
+      DIND_CPU_PERCENT: ${DIND_CPU_PERCENT:-512}
       DIND_MEMLIMIT: ${DIND_MEMLIMIT:-0}
       REDIS_MEMLIMIT: ${REDIS_MEMLIMIT:-0}
       PATCH_SNUBA: ${PATCH_SNUBA:-true}
