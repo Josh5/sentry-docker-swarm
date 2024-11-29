@@ -92,6 +92,10 @@
 #   #     Sets a CPU shares limit on the Sentry DIND container. Nested services will not be able to exceed this value.
 #   #     Set this to 1024 to apply system defaults. If left empty, a shares value of 512 will be applied.
 #   DIND_CPU_SHARES=512
+#   #-  - DIND_CPU_PERCENT -
+#   #     Impose a CPU CFS quota on the container calculated by the number of CPUs available acting as the effective CPU ceiling.
+#   #     Valid values should within the range of 1-100. If left empty, value of 75 will be applied.
+#   DIND_CPU_PERCENT=75
 #   #-  - DIND_MEMLIMIT -
 #   #     Sets a memory limit on the Sentry DIND container. Nested services will not be able to exceed this value.
 #   #     Set this to 0 to apply no memory limit. Use a suffix of b, k, m, g, to indicate bytes, kilobytes, megabytes, or gigabytes.
@@ -200,6 +204,7 @@ services:
       DEPLOYMENT_ID: ${DEPLOYMENT_ID:-default}
       KEEP_ALIVE: ${KEEP_ALIVE:-true}
       DIND_CPU_SHARES: ${DIND_CPU_SHARES:-512}
+      DIND_CPU_PERCENT: ${DIND_CPU_PERCENT:-512}
       DIND_MEMLIMIT: ${DIND_MEMLIMIT:-0}
       REDIS_MEMLIMIT: ${REDIS_MEMLIMIT:-0}
       PATCH_SNUBA: ${PATCH_SNUBA:-true}

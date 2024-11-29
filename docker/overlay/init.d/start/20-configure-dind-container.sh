@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:37:05 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Thursday, 28th November 2024 11:39:47 pm
+# Last Modified: Friday, 29th November 2024 1:40:52 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -20,15 +20,37 @@ else
 fi
 echo
 
+echo "  - Calculate DIND container CPU limits..."
+if [ -n "${DIND_CPU_PERCENT:-}" ]; then
+    if [[ "${DIND_CPU_PERCENT:?}" =~ ^[0-9]+$ ]] && [ "${DIND_CPU_PERCENT:?}" -ge 1 ] && [ "${DIND_CPU_PERCENT:?}" -le 100 ]; then
+        echo "    - The DIND_CPU_PERCENT variable is a valid number between 1 and 100."
+        if [ "${DIND_CPU_PERCENT:?}" = "100" ]; then
+            # 100 is not actually a valid number. Lets just drop that down a tad
+            DIND_CPU_PERCENT=99
+        fi
+    else
+        echo "    - The DIND_CPU_PERCENT variable is not a valid number between 1 and 100. Defaulting to 75."
+        DIND_CPU_PERCENT=75
+    fi
+else
+    echo "    - The DIND_CPU_PERCENT variable has not been provided. Defaulting to 75."
+    DIND_CPU_PERCENT=75
+fi
+TOTAL_CPUS=$(nproc)
+echo "    - Calculating CPU Quota from ${DIND_CPU_PERCENT:?}% of a total ${TOTAL_CPUS:?} CPUs"
+CPU_PERIOD=100000
+CPU_QUOTA=$(echo "${CPU_PERIOD:?} * $(nproc) * 0.${DIND_CPU_PERCENT:?}" | bc)
+CPU_QUOTA=${CPU_QUOTA%.*}
+echo "    - CPU Quota: ${CPU_QUOTA:?}/${CPU_PERIOD:?}"
+
 echo "  - Configure DIND container run aliases..."
 mkdir -p ${dind_cache_path:?}
 mkdir -p ${dind_run_path:?}
-# Calculate 90% of the available vCPUs
-DIND_CPULIMIT=$(echo "$(nproc) * 0.8" | bc)
 DIND_RUN_CMD="docker run --privileged -d --rm --name ${dind_continer_name:?} \
     --memory ${DIND_MEMLIMIT:-0} \
-    --cpus $(printf "%.1f" "${DIND_CPULIMIT:?}") \
     --cpu-shares ${DIND_CPU_SHARES:-512} \
+    --cpu-period ${CPU_PERIOD:?} \
+    --cpu-quota ${CPU_QUOTA:?} \
     --env DOCKER_DRIVER=overlay2 \
     --volume ${dind_cache_path:?}:/var/lib/docker \
     --volume ${dind_run_path:?}:/var/run \

@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:19:15 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Friday, 29th November 2024 1:19:46 am
+# Last Modified: Friday, 29th November 2024 1:42:35 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -103,25 +103,31 @@ echo "x-mem-limits/mem_limit/${DIND_MEMLIMIT:-0}" >>"${SENTRY_DATA_PATH}/self_ho
 echo "x-mem-limits-redis/mem_limit/${REDIS_MEMLIMIT:-0}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
 
 # CPU limits
+echo "  - Calculate stack CPU limits..."
+TOTAL_CPUS=$(nproc)
+STACK_CPU_PERCENT=$(echo "${DIND_CPU_PERCENT:-75} * 0.8" | bc)
+STACK_CPU_PERCENT=${STACK_CPU_PERCENT%.*}
+echo "    - Calculating backend services CPU Quota from ${STACK_CPU_PERCENT:?}% of a total ${TOTAL_CPUS:?} CPUs"
 CPU_PERIOD=100000
-CPU_QUOTA=$(echo "${CPU_PERIOD:?} * $(nproc) * 0.75" | bc)
-CPU_QUOTA=${CPU_QUOTA%.*}
+SERVICES_CPU_QUOTA=$(echo "${CPU_PERIOD:?} * $(nproc) * 0.${STACK_CPU_PERCENT:?}" | bc)
+SERVICES_CPU_QUOTA=${SERVICES_CPU_QUOTA%.*}
+echo "    - CPU Quota: ${SERVICES_CPU_QUOTA:?}/${CPU_PERIOD:?}"
 echo "  - Configure docker stack CPU cgroup"
-${cmd_prefix:?} cgcreate -g cpu:/sentry-stack-cgroup
+${cmd_prefix:?} cgcreate -g cpu:/sentry-backend-services
 echo "  - Apply CPU Share limits ${DIND_CPU_SHARES:-512}"
-${cmd_prefix:?} cgset -r cpu.weight="${DIND_CPU_SHARES:-512}" /sentry-stack-cgroup
-echo "  - Apply CPU Max quota as ${CPU_QUOTA:?} ${CPU_PERIOD:?}"
-${cmd_prefix:?} cgset -r cpu.max="${CPU_QUOTA:?} ${CPU_PERIOD:?}" /sentry-stack-cgroup
-echo "  - Configure services cgroup_parent as /sentry-stack-cgroup in docker-compose.custom.yml"
+${cmd_prefix:?} cgset -r cpu.weight="${DIND_CPU_SHARES:-512}" /sentry-backend-services
+echo "  - Apply CPU Max quota as ${SERVICES_CPU_QUOTA:?} ${CPU_PERIOD:?}"
+${cmd_prefix:?} cgset -r cpu.max="${SERVICES_CPU_QUOTA:?} ${CPU_PERIOD:?}" /sentry-backend-services
+echo "  - Configure services cgroup_parent as /sentry-backend-services in docker-compose.custom.yml"
 cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
-x-cpu-limits: &cpu-limits
-  cgroup_parent: /sentry-stack-cgroup
+x-backend-services-cpu-limits: &backend-services-cpu-limits
+  cgroup_parent: /sentry-backend-services
 
 x-cpu-shares-web: &cpu-shares-web
   cpu_shares: 2048
 
 EOF
-echo "x-cpu-limits/cpus/${CPU_QUOTA:?}-${CPU_PERIOD:?}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
+echo "x-backend-services-cpu-limits/cpus/${SERVICES_CPU_QUOTA:?}-${CPU_PERIOD:?}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
 echo "x-cpu-limits/cpu_shares/${DIND_CPU_SHARES:-512}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
 
 # Consolidate
@@ -142,11 +148,11 @@ EOF
         echo "      - *mem-limits" >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
     fi
     # Check if the service name is either the web, nginx or relay. Give these a higher cpu share.
-    # For all other services, limit them to whatever is configured with DIND_CPU_SHARES and a cpu.max of 75% of total CPU on host.
+    # For all other services, limit them to whatever is configured with the /sentry-backend-services cgroup.
     if [[ "${service:?}" == "web" || "${service:?}" == "nginx" || "${service:?}" == "relay" ]]; then
         echo "      - *cpu-shares-web" >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
     else
-        echo "      - *cpu-limits" >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
+        echo "      - *backend-services-cpu-limits" >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
     fi
 done
 
