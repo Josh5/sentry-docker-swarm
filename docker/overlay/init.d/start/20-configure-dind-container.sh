@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:37:05 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Friday, 29th November 2024 1:40:52 pm
+# Last Modified: Friday, 29th November 2024 4:59:17 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -48,6 +48,7 @@ mkdir -p ${dind_cache_path:?}
 mkdir -p ${dind_run_path:?}
 DIND_RUN_CMD="docker run --privileged -d --rm --name ${dind_continer_name:?} \
     --memory ${DIND_MEMLIMIT:-0} \
+    --memory-swap 1g \
     --cpu-shares ${DIND_CPU_SHARES:-512} \
     --cpu-period ${CPU_PERIOD:?} \
     --cpu-quota ${CPU_QUOTA:?} \
