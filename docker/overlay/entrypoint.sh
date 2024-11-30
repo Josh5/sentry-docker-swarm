@@ -88,7 +88,6 @@ _stack_monitor() {
 
         # Check if the main services have exited
         echo "  - Check that the main services are still up ---"
-        echo "--- Starting Sentry services ---"
         if [ "${WEB_ONLY_MAINTENANCE_MODE:-}" = "true" ]; then
             services="web nginx"
         else
@@ -100,11 +99,11 @@ _stack_monitor() {
             service_status=$(${docker_compose_cmd:?} ps --format "table {{.Service}} {{.Status}}" | grep $service || true)
             case $service_status in
             *Up*)
-                echo "      - Service $service is up and running."
+                echo "      - Service $service is up and running at $(date)."
                 continue
                 ;;
             *)
-                echo "      - Service $service is NOT running. Exit!"
+                echo "      - Service $service found NOT running at $(date). Exit!"
                 exit 123
                 ;;
             esac
