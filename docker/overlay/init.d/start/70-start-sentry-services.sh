@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 11:40:21 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Saturday, 30th November 2024 2:35:17 pm
+# Last Modified: Sunday, 1st December 2024 12:09:21 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -27,7 +27,7 @@ echo "${DEPLOYMENT_ID:-}" >"${SENTRY_DATA_PATH:?}/self_hosted/.z-deployment-id.t
 echo "--- Creating custom run script ---"
 echo "#!/usr/bin/env bash" >"${SENTRY_DATA_PATH:?}"/self_hosted/sentry-compose.sh
 echo "cd $(cd "${SENTRY_DATA_PATH:?}/self_hosted" && pwd)" >>"${SENTRY_DATA_PATH:?}"/self_hosted/sentry-compose.sh
-echo "${docker_compose_cmd:?}" ' $@' >>"${SENTRY_DATA_PATH:?}"/self_hosted/sentry-compose.sh
+echo "docker compose -f ./docker-compose.yml -f ./docker-compose.custom.yml --env-file .env.custom" ' $@' >>"${SENTRY_DATA_PATH:?}"/self_hosted/sentry-compose.sh
 chmod +x "${SENTRY_DATA_PATH:?}"/self_hosted/sentry-compose.sh
 
 echo "--- Starting Logging service ---"

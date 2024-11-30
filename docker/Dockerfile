@@ -13,6 +13,7 @@ RUN \
     echo "**** Install Sentry installation dependencies ****" \
         && apk add --no-cache \
             coreutils \
+            cgroup-tools \
     && \
     echo "**** Install Sentry config dependencies ****" \
         && wget -q "https://github.com/mikefarah/yq/releases/download/v4.43.1/yq_linux_amd64" \
