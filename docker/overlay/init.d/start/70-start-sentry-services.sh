@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 11:40:21 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Friday, 29th November 2024 12:25:43 am
+# Last Modified: Saturday, 30th November 2024 2:35:17 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -23,6 +23,12 @@ else
     echo "  - Deployment ID '${DEPLOYMENT_ID:-}' has not changed."
 fi
 echo "${DEPLOYMENT_ID:-}" >"${SENTRY_DATA_PATH:?}/self_hosted/.z-deployment-id.txt"
+
+echo "--- Creating custom run script ---"
+echo "#!/usr/bin/env bash" >"${SENTRY_DATA_PATH:?}"/self_hosted/sentry-compose.sh
+echo "cd $(cd "${SENTRY_DATA_PATH:?}/self_hosted" && pwd)" >>"${SENTRY_DATA_PATH:?}"/self_hosted/sentry-compose.sh
+echo "${docker_compose_cmd:?}" ' $@' >>"${SENTRY_DATA_PATH:?}"/self_hosted/sentry-compose.sh
+chmod +x "${SENTRY_DATA_PATH:?}"/self_hosted/sentry-compose.sh
 
 echo "--- Starting Logging service ---"
 if [ "${CUSTOM_LOG_DRIVER:-}" = "fluentd" ]; then
