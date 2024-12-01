@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:19:15 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 2nd December 2024 10:08:35 am
+# Last Modified: Monday, 2nd December 2024 10:14:17 am
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -142,7 +142,7 @@ for service in ${compose_services:?}; do
   ${service:?}:
     labels:
       - "source.service=${service:?}"
-      - "source.version=${SENTRY_VERSION:?}"
+      - "source.version=Sentry-v${SENTRY_VERSION:?}"
     <<: 
       - *env-import
       - *logging-base
