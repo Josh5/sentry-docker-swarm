@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:19:15 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Friday, 29th November 2024 1:42:35 pm
+# Last Modified: Monday, 2nd December 2024 10:08:35 am
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -70,8 +70,11 @@ x-logging-base: &logging-base
   logging:
     driver: fluentd
     options:
-      fluentd-address: localhost:24224
-      tag: sentry
+      fluentd-address: "localhost:24224"
+      tag: "sentry"
+      fluentd-request-ack: "true"
+      fluentd-async: "false"
+      labels: "source.service,source.version"
 
 EOF
     echo "x-logging-base/logging/driver/fluentd/fluentd-address/localhost:24224/tag/sentry" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
@@ -137,6 +140,9 @@ for service in ${compose_services:?}; do
     echo "    - Applying to service '${service:?}'."
     cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
   ${service:?}:
+    labels:
+      - "source.service=${service:?}"
+      - "source.version=${SENTRY_VERSION:?}"
     <<: 
       - *env-import
       - *logging-base
