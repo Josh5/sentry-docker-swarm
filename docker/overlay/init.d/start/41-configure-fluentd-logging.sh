@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 9:46:22 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Tuesday, 26th November 2024 11:58:42 pm
+# Last Modified: Monday, 2nd December 2024 10:42:00 am
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -44,15 +44,15 @@ if [ "${CUSTOM_LOG_DRIVER:-}" = "fluentd" ]; then
         echo "        <store>" >"$fluentd_forward_tmp"
         cat <<EOF >>"$fluentd_forward_tmp"
             @type                 forward
-            send_timeout          20s
+            send_timeout          60s
             recover_wait          10s
-            hard_timeout          30s
+            hard_timeout          90s
             require_ack_response  true
             <buffer>
                 @type             file
                 path              /fluentd/storage/buffer
-                flush_interval    5s
-                chunk_limit_size  1m
+                flush_interval    30s
+                chunk_limit_size  5m
                 flush_at_shutdown true
             </buffer>
             <server>
