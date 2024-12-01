@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:19:15 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 2nd December 2024 10:14:17 am
+# Last Modified: Monday, 2nd December 2024 10:26:19 am
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -195,7 +195,7 @@ export docker_compose_cmd="${cmd_prefix:?} docker compose -f ./docker-compose.ym
 if [ "${PATCH_SNUBA:-true}" = "true" ]; then
     echo "  - Replacing snuba 'rust-consumer' with 'consumer'"
     # REF: https://github.com/getsentry/snuba/issues/5707
-    sed -ie "s/rust-consumer/consumer/g" "${SENTRY_DATA_PATH}/self_hosted/docker-compose.yml"
+    sed -i "s/rust-consumer/consumer/g" "${SENTRY_DATA_PATH}/self_hosted/docker-compose.yml"
     echo "snuba-patch - https://github.com/getsentry/snuba/issues/5707" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
 fi
 
