@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:19:15 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 2nd December 2024 10:26:19 am
+# Last Modified: Monday, 2nd December 2024 11:00:38 pm
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
@@ -51,6 +51,15 @@ echo "x-env-import/env_file/.env.custom" >>"${SENTRY_DATA_PATH}/self_hosted/.z-c
 
 # Logging driver
 echo "  - Configure services logging driver"
+cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
+x-logging-json: &logging-json
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: 5
+
+EOF
 if [ "${CUSTOM_LOG_DRIVER:-}" = "json-file" ]; then
     echo "    - Configure Docker Compose to use json-file log driver for all services."
     cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
@@ -145,8 +154,13 @@ for service in ${compose_services:?}; do
       - "source.version=Sentry-v${SENTRY_VERSION:?}"
     <<: 
       - *env-import
-      - *logging-base
 EOF
+    # Apply custom logging driver to some services
+    if [[ "${service:?}" == "nginx" ]]; then
+        echo "      - *logging-json" >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
+    else
+        echo "      - *logging-base" >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
+    fi
     # Apply memory limits. Some services have custom memory limits
     if [[ "${service:?}" == "redis" ]]; then
         echo "      - *mem-limits-redis" >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
