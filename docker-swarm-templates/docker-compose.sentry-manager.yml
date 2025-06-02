@@ -278,17 +278,25 @@ services:
       echo
 
       echo "Configuring Nginx proxy..."
-      if [ ! -f "$${SENTRY_DATA_PATH:?}/self_hosted/nginx/nginx.conf" ]; then
-        echo "  - Nginx Config does not yet exist. Exit!"
+
+      # Try new location first
+      if [ -f "$${SENTRY_DATA_PATH:?}/self_hosted/nginx.conf" ]; then
+        nginx_conf="$${SENTRY_DATA_PATH:?}/self_hosted/nginx.conf"
+        echo "  - Using new nginx.conf location: $${nginx_conf}"
+      elif [ -f "$${SENTRY_DATA_PATH:?}/self_hosted/nginx/nginx.conf" ]; then
+        nginx_conf="$${SENTRY_DATA_PATH:?}/self_hosted/nginx/nginx.conf"
+        echo "  - Using legacy nginx.conf location: $${nginx_conf}"
+      else
+        echo "  - No valid nginx.conf found. Exit!"
         exit 1
       fi
-      cp -fv "$${SENTRY_DATA_PATH:?}/self_hosted/nginx/nginx.conf" "/etc/nginx/nginx.conf"
-      sed -i "s|server relay|server $${dind_continer_name:?}|" "/etc/nginx/nginx.conf"
-      sed -i "s|server web|server $${dind_continer_name:?}|" "/etc/nginx/nginx.conf"
+
+      cp -fv "$${nginx_conf:?}" "/etc/nginx/nginx.conf"
+      sed -i "s|http://relay|http://$${dind_continer_name:?}:3000|" "/etc/nginx/nginx.conf"
+      sed -i "s|http://sentry|http://$${dind_continer_name:?}:9000|" "/etc/nginx/nginx.conf"
       cat /etc/nginx/nginx.conf
       echo
 
       echo "Running Nginx entrypoint..."
-      /docker-entrypoint.sh nginx -g "daemon off;" 
-      echo
+      exec /docker-entrypoint.sh nginx -g "daemon off;"
       '
