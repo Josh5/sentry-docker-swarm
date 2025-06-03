@@ -4,11 +4,14 @@ on:
     branches: [master]
   schedule:
     # At 02:30 on Saturday
-    - cron: '30 2 * * 6'
+    - cron: "30 2 * * 6"
 
 jobs:
   build-image:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        docker_version: [26, 27, 28]
     permissions:
       contents: read
       packages: write
@@ -33,14 +36,17 @@ jobs:
         with:
           images: ${{ vars.REGISTRY }}/${{ vars.IMAGE_NAME }}
 
-      - name: Build and push Container image
+      - name: Build and push container image (v${{ matrix.docker_version }})
         uses: docker/build-push-action@v6
         with:
           context: docker
+          build-args: |
+            DOCKER_VERSION=${{ matrix.docker_version }}
           pull: true
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ${{ vars.REGISTRY }}/${{ vars.IMAGE_NAME }}:latest
+            ${{ vars.REGISTRY }}/${{ vars.IMAGE_NAME }}:v${{ matrix.docker_version }}
+            ${{ matrix.docker_version == 28 && format('{0}/{1}:latest', vars.REGISTRY, vars.IMAGE_NAME) || '' }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

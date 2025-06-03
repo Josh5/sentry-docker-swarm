@@ -1,6 +1,7 @@
 # Releases:
 #   https://hub.docker.com/_/docker/tags
-FROM docker:28
+ARG DOCKER_VERSION=28
+FROM docker:${DOCKER_VERSION}
 
 LABEL maintainer="Josh.5 <jsunnex@gmail.com>"
 
