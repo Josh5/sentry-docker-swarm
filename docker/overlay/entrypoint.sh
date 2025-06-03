@@ -5,8 +5,8 @@
 # File Created: Friday, 18th October 2024 5:05:51 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Friday, 29th November 2024 12:30:19 am
-# Modified By: Josh5 (jsunnex@gmail.com)
+# Last Modified: Tuesday, 3rd June 2025 12:48:49 pm
+# Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 set -eu
 
@@ -14,7 +14,7 @@ set -eu
 # --- Export config
 #
 export docker_version=$(docker --version | grep -oE "[0-9]+\.[0-9]+\.[0-9]+")
-if [ "X${DOCKER_VERSION:-}" = "X" ]; then
+if [ "X${DOCKER_VERSION:-}" != "X" ]; then
     export docker_version=${DOCKER_VERSION:?}
 fi
 export dind_continer_name="sentry-swarm-dind"
