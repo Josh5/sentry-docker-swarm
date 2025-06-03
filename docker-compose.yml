@@ -25,7 +25,7 @@ services:
       NETWORK_NAME: sentry-private
       # Releases:
       #   https://github.com/getsentry/self-hosted/releases
-      SENTRY_VERSION: 24.8.0
+      SENTRY_VERSION: 25.5.1
       SENTRY_BEACON_DISABLED: ${SENTRY_BEACON_DISABLED}
       SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY}
       SENTRY_URL_PREFIX: ${SENTRY_URL_PREFIX}

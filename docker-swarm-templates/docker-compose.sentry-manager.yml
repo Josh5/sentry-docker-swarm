@@ -7,7 +7,7 @@
 #
 # ---------------
 # TODO:
-#       - Remove sentry-zookeeper from volume backups. This was removed in v24.8.0.
+#       - 
 #
 # ---------------
 # Config (paste into portainer advance env text input):
@@ -55,7 +55,7 @@
 #   #     Set the version of Docker to use
 #   #     Leave blank to use the default. Note that different versions of Sentry require different versions of Docker compose and even possibly Docker.
 #   #     NOTE:
-#   #       - Sentry Self-Hosted v24.8.0 and newer require Docker v27+ due to changes
+#   #       - Sentry Self-Hosted > v24.8.0 and newer require Docker v27+ due to changes
 #   #         in `docker compose` CLI flags.
 #   #       - For older versions (e.g., v24.6.0), Docker v26 or earlier may be required.
 #   #       - See: https://github.com/getsentry/self-hosted/commit/559e7324686b8b0a7fa6f4783013cbb7a81d7080
@@ -63,7 +63,7 @@
 #   #-  - SENTRY_VERSION -
 #   #     Set the version of Sentry to deploy
 #   #     Releases: https://github.com/getsentry/self-hosted/releases
-#   SENTRY_VERSION=24.8.0
+#   SENTRY_VERSION=25.5.1
 #   #-  - SENTRY_CONF_CUSTOM -
 #   #     Adds additional config options to sentry.conf.py file during the install.
 #   SENTRY_CONF_CUSTOM=OIDC_CLIENT_ID=""\nOIDC_CLIENT_SECRET=""
