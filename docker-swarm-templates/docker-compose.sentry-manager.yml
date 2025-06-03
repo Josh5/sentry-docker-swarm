@@ -304,8 +304,8 @@ services:
       fi
 
       cp -fv "$${nginx_conf:?}" "/etc/nginx/nginx.conf"
-      sed -i "s|http://relay|http://$${dind_continer_name:?}:3000|" "/etc/nginx/nginx.conf"
-      sed -i "s|http://sentry|http://$${dind_continer_name:?}:9000|" "/etc/nginx/nginx.conf"
+      sed -i "s|server relay|server $${dind_continer_name:?}|" "/etc/nginx/nginx.conf"
+      sed -i "s|server web|server $${dind_continer_name:?}|" "/etc/nginx/nginx.conf"
       cat /etc/nginx/nginx.conf
       echo
 
