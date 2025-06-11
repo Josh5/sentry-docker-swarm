@@ -1,0 +1,14 @@
+[
+    {
+        "service": "worker",
+        "patterns": [
+            "OOM command not allowed when used memory > 'maxmemory'"
+        ]
+    },
+    {
+        "service": "metrics-consumer",
+        "patterns": [
+            "Broker: Offset out of range"
+        ]
+    }
+]

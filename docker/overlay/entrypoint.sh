@@ -5,7 +5,7 @@
 # File Created: Friday, 18th October 2024 5:05:51 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Tuesday, 3rd June 2025 12:48:49 pm
+# Last Modified: Wednesday, 11th June 2025 2:18:06 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 set -eu
@@ -70,8 +70,55 @@ for start_script in /init.d/start/*.sh; do
 done
 
 ################################################
-# --- Create compose stack monitor
+# --- Create compose stack monitors
 #
+# $> docker_compose_cmd="docker compose -f ./docker-compose.yml -f ./docker-compose.custom.yml"
+_log_monitor() {
+    echo
+    echo -e "\e[35m[ Starting log monitor ]\e[0m"
+
+    local log_monitor_config_file="/defaults/log-monitor-config.json"
+    local log_monitor_since="3m"
+
+    while true; do
+        local service_count service container_ids
+        service_count=$(yq e 'length' "${log_monitor_config_file:?}")
+
+        for i in $(seq 0 $((service_count - 1))); do
+            service=$(yq e ".[$i].service" "$log_monitor_config_file")
+            mapfile -t patterns < <(yq e ".[$i].patterns[]" "$log_monitor_config_file")
+
+            container_ids=$(${docker_compose_cmd:?} ps -q "$service" || true)
+            [ -z "$container_ids" ] && continue
+
+            for container_id in $container_ids; do
+                docker logs --since "$log_monitor_since" "$container_id" 2>&1 | while IFS= read -r log_line; do
+                    for pattern in "${patterns[@]}"; do
+                        if echo "$log_line" | grep -qF "$pattern"; then
+                            echo -e "\e[31m[ Log monitor detected error in $service: '$pattern' matched ]\e[0m"
+                            echo -e "\e[33m[ Log line: $log_line ]\e[0m"
+
+                            # if [ -n "${WEBHOOK_ON_ERRORS_IN_LOGS:-}" ]; then
+                            #     echo "  - Sending error notification to webhook"
+                            #     wget --timeout=10 --no-check-certificate -qO- \
+                            #         --post-data "service=${service}&pattern=${pattern}&log_line=$(echo "$log_line" | sed 's/"/\\"/g')" \
+                            #         "${WEBHOOK_ON_ERRORS_IN_LOGS}" >/dev/null 2>&1 || true
+                            # fi
+
+                            if [ "${EXIT_ON_ERRORS_IN_LOGS:-false}" = "true" ]; then
+                                echo -e "\e[33m[ Triggering shutdown due to log pattern match ]\e[0m"
+                                touch /tmp/sentry-log-monitor.error
+                            fi
+                        fi
+                    done
+                done
+            done
+        done
+
+        sleep 30
+    done
+}
+
 _stack_monitor() {
     echo
     echo -e "\e[35m[ Waiting for child services to exit ]\e[0m"
@@ -83,6 +130,12 @@ _stack_monitor() {
         exited_services=$(${docker_compose_cmd:?} ps --all --filter "status=exited" | grep -v "^NAME" | grep -v "Exit 0" | grep -vE "${ignored_services:?}" || true)
         if [ "X${exited_services}" != "X" ]; then
             echo "      - Some services have exited with a non-zero status. Exit!"
+            exit 123
+        fi
+
+        # Check for flag set by error strings being found in the container logs
+        if [ -f /tmp/sentry-log-monitor.error ]; then
+            echo "  - Error flag file detected from log monitor. Exit!"
             exit 123
         fi
 
@@ -115,4 +168,11 @@ _stack_monitor() {
 }
 sleep 10 &
 wait $!
+
+# Run the container logs monitor in the background
+if [ "${ENABLE_LOG_MONITOR:-false}" = "true" ]; then
+    _log_monitor &
+fi
+
+# Run the stack monitor
 _stack_monitor
