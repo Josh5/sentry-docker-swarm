@@ -5,8 +5,8 @@
 # File Created: Monday, 21st October 2024 9:46:22 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 2nd December 2024 10:42:00 am
-# Modified By: Josh5 (jsunnex@gmail.com)
+# Last Modified: Wednesday, 11th June 2025 12:16:11 pm
+# Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
 # Check if we should perform a "nuclear clean" before running the installation
@@ -48,6 +48,7 @@ if [ "${CUSTOM_LOG_DRIVER:-}" = "fluentd" ]; then
             recover_wait          10s
             hard_timeout          90s
             require_ack_response  true
+            keepalive_timeout     29s
             <buffer>
                 @type             file
                 path              /fluentd/storage/buffer
