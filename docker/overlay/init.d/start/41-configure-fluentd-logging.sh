@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 9:46:22 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Wednesday, 11th June 2025 12:17:16 pm
+# Last Modified: Wednesday, 11th June 2025 3:59:34 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -43,26 +43,29 @@ if [ "${CUSTOM_LOG_DRIVER:-}" = "fluentd" ]; then
         fluentd_forward_tmp=$(mktemp)
         echo "        <store>" >"$fluentd_forward_tmp"
         cat <<EOF >>"$fluentd_forward_tmp"
-            @type                 forward
-            send_timeout          60s
-            recover_wait          10s
-            hard_timeout          90s
-            require_ack_response  true
-            keepalive_timeout     29s
+            @type                   forward
+            recover_wait            10s
+            send_timeout            30s
+            hard_timeout            30s
+            require_ack_response    true
+            keepalive               true
+            keepalive_timeout       29s
+            heartbeat_type          tcp
             <buffer>
-                @type             file
-                path              /fluentd/storage/buffer
-                flush_interval    30s
-                chunk_limit_size  5m
-                flush_at_shutdown true
-                retry_type        exponential_backoff
-                retry_timeout     72h
+                @type               file
+                path                /fluentd/storage/buffer
+                flush_interval      30s
+                chunk_limit_size    5m
+                flush_at_shutdown   true
+                retry_type          exponential_backoff
+                retry_timeout       72h
+                retry_max_interval  1h
             </buffer>
             <server>
-                name              upstream
-                weight            60
-                host              ${fluentd_forward_host:?}
-                port              ${fluentd_forward_port:?}
+                name                upstream
+                weight              60
+                host                ${fluentd_forward_host:?}
+                port                ${fluentd_forward_port:?}
             </server>
 EOF
         if [ "X${FLUENTD_FORWARD_SHARED_KEY:-}" != "X" ]; then
