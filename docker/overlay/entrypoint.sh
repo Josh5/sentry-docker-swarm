@@ -5,7 +5,7 @@
 # File Created: Friday, 18th October 2024 5:05:51 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Wednesday, 11th June 2025 2:28:42 pm
+# Last Modified: Wednesday, 11th June 2025 2:50:04 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 set -eu
@@ -72,7 +72,7 @@ done
 ################################################
 # --- Create compose stack monitors
 #
-# $> docker_compose_cmd="docker compose -f ./docker-compose.yml -f ./docker-compose.custom.yml"
+# $> docker_compose_cmd="${cmd_prefix:?} docker compose -f ./docker-compose.yml -f ./docker-compose.custom.yml"
 _log_monitor() {
     echo
     echo -e "\e[35m[ Starting log monitor ]\e[0m"
@@ -81,37 +81,43 @@ _log_monitor() {
     local log_monitor_since="3m"
 
     while true; do
-        local service_count service container_ids
+        local service_count service container_ids available_services
         service_count=$(yq e 'length' "${log_monitor_config_file:?}")
 
+        # Get all services from compose stack
+        available_services=$(${docker_compose_cmd:?} config --services)
+
         for i in $(seq 0 $((service_count - 1))); do
-            service=$(yq e ".[$i].service" "$log_monitor_config_file")
-            mapfile -t patterns < <(yq e ".[$i].patterns[]" "$log_monitor_config_file")
+            log_monitor_service_pattern=$(yq e ".[$i].service" "$log_monitor_config_file")
+            log_monitor_patterns=$(yq e ".[$i].patterns[]" "$log_monitor_config_file")
 
-            container_ids=$(${docker_compose_cmd:?} ps -q "$service" || true)
-            [ -z "$container_ids" ] && continue
+            # Match pattern against available services
+            for svc in ${available_services}; do
+                if [[ "$svc" == $log_monitor_service_pattern ]]; then
+                    log_monitor_container_ids=$(${docker_compose_cmd:?} ps -q "$svc" || true)
+                    [ -z "${log_monitor_container_ids}" ] && continue
 
-            for container_id in $container_ids; do
-                docker logs --since "$log_monitor_since" "$container_id" 2>&1 | while IFS= read -r log_line; do
-                    for pattern in "${patterns[@]}"; do
-                        if echo "$log_line" | grep -qF "$pattern"; then
-                            echo -e "\e[31m[ Log monitor detected error in $service: '$pattern' matched ]\e[0m"
-                            echo -e "\e[33m[ Log line: $log_line ]\e[0m"
+                    for container_id in ${log_monitor_container_ids}; do
+                        ${docker_cmd:?} logs --since "$log_monitor_since" "$container_id" 2>&1 | while IFS= read -r log_line; do
+                            while IFS= read -r pattern; do
+                                if echo "$log_line" | grep -qE "$pattern"; then
+                                    echo
+                                    echo -e "\e[31m[ Log monitor detected error in ${svc}: '${pattern}' matched ]\e[0m"
 
-                            # if [ -n "${SEND_WEBHOOK_ON_ERRORS_IN_LOGS:-}" ]; then
-                            #     echo "  - Sending error notification to webhook"
-                            #     wget --timeout=10 --no-check-certificate -qO- \
-                            #         --post-data "service=${service}&pattern=${pattern}&log_line=$(echo "$log_line" | sed 's/"/\\"/g')" \
-                            #         "${SEND_WEBHOOK_ON_ERRORS_IN_LOGS}" >/dev/null 2>&1 || true
-                            # fi
+                                    if [ "${SEND_WEBHOOK_ON_ERRORS_IN_LOGS:-}" != "" ]; then
+                                        wget -qO- --method POST \
+                                            --body-data "Log monitor error in ${svc}: ${pattern}" \
+                                            "${SEND_WEBHOOK_ON_ERRORS_IN_LOGS}" || echo -e "\e[31m[ Failed to send webhook ]\e[0m"
+                                    fi
 
-                            if [ "${EXIT_ON_ERRORS_IN_LOGS:-false}" = "true" ]; then
-                                echo -e "\e[33m[ Triggering shutdown due to log pattern match ]\e[0m"
-                                touch /tmp/sentry-log-monitor.error
-                            fi
-                        fi
+                                    if [ "${EXIT_ON_ERRORS_IN_LOGS:-}" = "true" ]; then
+                                        touch /tmp/sentry-log-monitor.error
+                                    fi
+                                fi
+                            done <<<"${log_monitor_patterns}"
+                        done
                     done
-                done
+                fi
             done
         done
 
@@ -136,6 +142,7 @@ _stack_monitor() {
         # Check for flag set by error strings being found in the container logs
         if [ -f /tmp/sentry-log-monitor.error ]; then
             echo "  - Error flag file detected from log monitor. Exit!"
+            rm -f /tmp/sentry-log-monitor.error
             exit 123
         fi
 
