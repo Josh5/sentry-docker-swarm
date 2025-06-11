@@ -5,7 +5,7 @@
 # File Created: Friday, 18th October 2024 5:05:51 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Wednesday, 11th June 2025 2:18:06 pm
+# Last Modified: Wednesday, 11th June 2025 2:28:42 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 set -eu
@@ -98,11 +98,11 @@ _log_monitor() {
                             echo -e "\e[31m[ Log monitor detected error in $service: '$pattern' matched ]\e[0m"
                             echo -e "\e[33m[ Log line: $log_line ]\e[0m"
 
-                            # if [ -n "${WEBHOOK_ON_ERRORS_IN_LOGS:-}" ]; then
+                            # if [ -n "${SEND_WEBHOOK_ON_ERRORS_IN_LOGS:-}" ]; then
                             #     echo "  - Sending error notification to webhook"
                             #     wget --timeout=10 --no-check-certificate -qO- \
                             #         --post-data "service=${service}&pattern=${pattern}&log_line=$(echo "$log_line" | sed 's/"/\\"/g')" \
-                            #         "${WEBHOOK_ON_ERRORS_IN_LOGS}" >/dev/null 2>&1 || true
+                            #         "${SEND_WEBHOOK_ON_ERRORS_IN_LOGS}" >/dev/null 2>&1 || true
                             # fi
 
                             if [ "${EXIT_ON_ERRORS_IN_LOGS:-false}" = "true" ]; then
