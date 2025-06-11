@@ -5,7 +5,7 @@
 # File Created: Friday, 18th October 2024 5:05:51 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Wednesday, 11th June 2025 2:50:04 pm
+# Last Modified: Wednesday, 11th June 2025 3:09:35 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 set -eu
@@ -77,7 +77,7 @@ _log_monitor() {
     echo
     echo -e "\e[35m[ Starting log monitor ]\e[0m"
 
-    local log_monitor_config_file="/defaults/log-monitor-config.json"
+    local log_monitor_config_file="/defaults/log-monitor/config.json"
     local log_monitor_since="3m"
 
     while true; do
@@ -104,10 +104,18 @@ _log_monitor() {
                                     echo
                                     echo -e "\e[31m[ Log monitor detected error in ${svc}: '${pattern}' matched ]\e[0m"
 
-                                    if [ "${SEND_WEBHOOK_ON_ERRORS_IN_LOGS:-}" != "" ]; then
-                                        wget -qO- --method POST \
-                                            --body-data "Log monitor error in ${svc}: ${pattern}" \
-                                            "${SEND_WEBHOOK_ON_ERRORS_IN_LOGS}" || echo -e "\e[31m[ Failed to send webhook ]\e[0m"
+                                    if [ "${NOTIFY_DISCORD_FOR_ERRORS_IN_LOGS:-}" != "" ]; then
+                                        local discord_payload=$(
+                                            DISCORD_CONTENT="🚨 Sentry log monitor found an error in ${svc}" \
+                                                DISCORD_TITLE="Log Error Detected" \
+                                                DISCORD_DESCRIPTION="Matched pattern: \`${pattern}\`" \
+                                                DISCORD_FOOTER="Generated at $(date)" \
+                                                envsubst </defaults/log-monitor/notifications-body-discord.tmpl.json
+                                        )
+                                        echo "${discord_payload:?}" | wget --method POST \
+                                            --header="Content-Type: application/json" \
+                                            --body-file=- \
+                                            -qO- "${NOTIFY_DISCORD_FOR_ERRORS_IN_LOGS}" || echo -e "\e[31m[ Failed to send Discord webhook ]\e[0m"
                                     fi
 
                                     if [ "${EXIT_ON_ERRORS_IN_LOGS:-}" = "true" ]; then

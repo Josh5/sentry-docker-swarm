@@ -103,9 +103,9 @@
 #   #-  - EXIT_ON_ERRORS_IN_LOGS -
 #   #     Exit the monitor service if any of the common error logs are seen in the stack logs. Requires ENABLE_LOG_MONITOR=true.
 #   EXIT_ON_ERRORS_IN_LOGS=false
-#   #-  - SEND_WEBHOOK_ON_ERRORS_IN_LOGS -
-#   #     Post a message to a webhook endpoint if any common error logs are seen in the stack logs. Leave empty to disable.
-#   SEND_WEBHOOK_ON_ERRORS_IN_LOGS=
+#   #-  - NOTIFY_DISCORD_FOR_ERRORS_IN_LOGS -
+#   #     Post a message to a Discord webhook if any common error logs are seen in the stack logs. Leave empty to disable.
+#   NOTIFY_DISCORD_FOR_ERRORS_IN_LOGS=
 #   #-  - DIND_CPU_SHARES -
 #   #     Sets a CPU shares limit on the Sentry DIND container. Nested services will not be able to exceed this value.
 #   #     Set this to 1024 to apply system defaults. If left empty, a shares value of 512 will be applied.
@@ -226,7 +226,7 @@ services:
       KEEP_ALIVE: ${KEEP_ALIVE:-true}
       ENABLE_LOG_MONITOR: ${ENABLE_LOG_MONITOR:-true}
       EXIT_ON_ERRORS_IN_LOGS: ${EXIT_ON_ERRORS_IN_LOGS:-false}
-      SEND_WEBHOOK_ON_ERRORS_IN_LOGS: ${SEND_WEBHOOK_ON_ERRORS_IN_LOGS:-}
+      NOTIFY_DISCORD_FOR_ERRORS_IN_LOGS: ${NOTIFY_DISCORD_FOR_ERRORS_IN_LOGS:-}
       DIND_CPU_SHARES: ${DIND_CPU_SHARES:-512}
       DIND_CPU_PERCENT: ${DIND_CPU_PERCENT:-75}
       DIND_MEMLIMIT: ${DIND_MEMLIMIT:-0}

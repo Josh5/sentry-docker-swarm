@@ -1,0 +1,15 @@
+{
+    "username": "Sentry Log Monitor",
+    "avatar_url": "https://lh4.googleusercontent.com/proxy/7JusCxBPSdXSxjJ3bjRYzDahxGjSSQdNoGOS8F_Z3JGb9dDNDOVlJgE8zJiGb71_bJP781cDqLffA2pBLE7YGh8SMSJmIqu5y4rcVSpVe5jIW1BPzsQ6xS1ted9YzImaTlfDryZBhH4",
+    "content": "${DISCORD_CONTENT}",
+    "embeds": [
+        {
+            "title": "${DISCORD_TITLE}",
+            "description": "${DISCORD_DESCRIPTION}",
+            "color": 15158332,
+            "footer": {
+                "text": "${DISCORD_FOOTER}"
+            }
+        }
+    ]
+}
