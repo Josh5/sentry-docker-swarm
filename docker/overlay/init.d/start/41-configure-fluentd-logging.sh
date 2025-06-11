@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 9:46:22 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Wednesday, 11th June 2025 12:16:11 pm
+# Last Modified: Wednesday, 11th June 2025 12:17:16 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -55,6 +55,8 @@ if [ "${CUSTOM_LOG_DRIVER:-}" = "fluentd" ]; then
                 flush_interval    30s
                 chunk_limit_size  5m
                 flush_at_shutdown true
+                retry_type        exponential_backoff
+                retry_timeout     72h
             </buffer>
             <server>
                 name              upstream
