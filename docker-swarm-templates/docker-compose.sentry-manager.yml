@@ -72,7 +72,7 @@
 #   SENTRY_ENV_CUSTOM=KAFKA_LOG_RETENTION_BYTES=21474836480\nKAFKA_LOG_SEGMENT_BYTES=1073741824\nKAFKA_LOG_RETENTION_CHECK_INTERVAL_MS=300000\nKAFKA_LOG_SEGMENT_DELETE_DELAY_MS=60000
 #   #-  - ADDITIONAL_APT_PACKAGES -
 #   #     Installs additional APT packages into the Sentry image.
-#   ADDITIONAL_APT_PACKAGES=python-dev
+#   ADDITIONAL_APT_PACKAGES=python3-dev python3-pip libldap2-dev libsasl2-dev libssl-dev
 #   #-  - ADDITIONAL_PYTHON_MODULES -
 #   #     Installs additional Python modules into the Sentry image.
 #   ADDITIONAL_PYTHON_MODULES=python-ldap
@@ -145,6 +145,9 @@
 #   #-  - FLUENTD_FORWARD_VERIFY_CERT_HOSTNAME -
 #   #     Verifies hostname of servers and certificates with fluentd forward.
 #   FLUENTD_FORWARD_VERIFY_CERT_HOSTNAME=false
+#   #-  - FLUENTD_HTTP_ADDRESS -
+#   #     The address for the fluentd logging driver.
+#   FLUENTD_HTTP_ADDRESS=
 #   #-  - FLUENTD_TAG -
 #   #     A tag to give all logs forwarded to FLUENTD_FORWARD_ADDRESS. Will default to 'sentry' if not set.
 #   FLUENTD_TAG=sentry
@@ -238,6 +241,7 @@ services:
       FLUENTD_FORWARD_USE_TLS: ${FLUENTD_FORWARD_USE_TLS:-true}
       FLUENTD_FORWARD_VERIFY_CERT: ${FLUENTD_FORWARD_VERIFY_CERT:-false}
       FLUENTD_FORWARD_VERIFY_CERT_HOSTNAME: ${FLUENTD_FORWARD_VERIFY_CERT_HOSTNAME:-false}
+      FLUENTD_HTTP_ADDRESS: ${FLUENTD_HTTP_ADDRESS:-}
       FLUENTD_TAG: ${FLUENTD_TAG:-}
       FLUENTD_ADDITIONAL_SOURCE_TAGS: ${FLUENTD_ADDITIONAL_SOURCE_TAGS:-}
     volumes:

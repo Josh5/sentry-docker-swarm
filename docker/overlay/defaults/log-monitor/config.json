@@ -6,7 +6,7 @@
         ]
     },
     {
-        "service": "*metrics-consumer",
+        "service": "(.*-consumer.*)|(post-process-forwarder-errors)|(ingest-.*)|(monitors-clock.*)",
         "patterns": [
             "Broker: Offset out of range"
         ]

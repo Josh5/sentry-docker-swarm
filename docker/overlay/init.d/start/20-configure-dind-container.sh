@@ -5,8 +5,8 @@
 # File Created: Monday, 21st October 2024 10:37:05 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Saturday, 30th November 2024 3:07:17 pm
-# Modified By: Josh5 (jsunnex@gmail.com)
+# Last Modified: Monday, 18th August 2025 11:28:31 am
+# Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
 echo "--- Configure DIND ---"
@@ -97,7 +97,7 @@ fi
 echo "--- Install Sentry installation and configuration dependencies into DIND container ---"
 echo "  - Install bash and coreutils packages in DIND container required for install script"
 ${cmd_prefix:?} sh -c "apk add bash coreutils cgroup-tools"
-echo "  - Install yq tool to endit Sentry config.yml"
+echo "  - Install yq tool to edit Sentry config.yml"
 wget -q "https://github.com/mikefarah/yq/releases/download/v4.43.1/yq_linux_amd64" \
     -O "/usr/bin/yq"
 chmod +x "/usr/bin/yq"
