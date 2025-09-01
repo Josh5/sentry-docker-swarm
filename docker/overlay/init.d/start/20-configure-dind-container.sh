@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:37:05 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 1st September 2025 12:14:08 pm
+# Last Modified: Monday, 1st September 2025 1:00:45 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -19,6 +19,12 @@ else
     echo "    - A private network for DIND named ${dind_bridge_network_name:?} already exists!"
 fi
 echo
+
+echo "  - Set DIND daemon args..."
+dind_daemon_args=""
+if [ -n "${DIND_MTU:-}" ]; then
+    dind_daemon_args="${dind_daemon_args:-} --mtu=${DIND_MTU:?}"
+fi
 
 echo "  - Calculate DIND container CPU limits..."
 if [ -n "${DIND_CPU_PERCENT:-}" ]; then
@@ -58,7 +64,7 @@ DIND_RUN_CMD="docker run --privileged -d --rm --name ${dind_continer_name:?} \
     --network ${dind_bridge_network_name:?} \
     --network-alias ${dind_continer_name:?} \
     --publish 9000:9000 \
-    docker:${docker_version:?}-dind"
+    docker:${docker_version:?}-dind ${dind_daemon_args:-}"
 DIND_NET_CONN_CMD="docker network connect --alias ${dind_continer_name:?} ${sentry_net_name:?} ${dind_continer_name:?}"
 
 echo "  - Writing DIND container config to env file"
