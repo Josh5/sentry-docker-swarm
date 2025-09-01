@@ -178,7 +178,7 @@ networks:
 services:
   # -- MAIN SERVICE --
   manager:
-    image: ghcr.io/josh5/sentry-docker-swarm:latest
+    image: ghcr.io/josh5/sentry-docker-swarm:v28 #>convert_sha256
     deploy:
       replicas: 1
       restart_policy:
