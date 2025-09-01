@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:37:05 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 1st September 2025 1:00:45 pm
+# Last Modified: Monday, 1st September 2025 6:50:37 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -52,7 +52,7 @@ echo "    - CPU Quota: ${CPU_QUOTA:?}/${CPU_PERIOD:?}"
 echo "  - Configure DIND container run aliases..."
 mkdir -p ${dind_cache_path:?}
 mkdir -p ${dind_run_path:?}
-DIND_RUN_CMD="docker run --privileged -d --rm --name ${dind_continer_name:?} \
+DIND_RUN_CMD="docker run --privileged -d --name ${dind_continer_name:?} \
     --memory ${DIND_MEMLIMIT:-0} \
     --cpu-shares ${DIND_CPU_SHARES:-512} \
     --cpu-period ${CPU_PERIOD:?} \
@@ -89,7 +89,11 @@ else
 fi
 
 echo "  - Ensure DIND container is running"
-if ! docker ps | grep -q "${dind_continer_name}"; then
+if docker ps -a --filter "name=${dind_continer_name}" --filter "status=exited" | grep -q "${dind_continer_name}"; then
+    echo "    - Removing existing exited DIND container"
+    docker rm "${dind_continer_name:?}" &>/dev/null || true
+fi
+if ! docker ps --filter "name=${dind_continer_name}" | grep -q "${dind_continer_name}"; then
     echo "    - Fetching latest docker in docker image 'docker:${docker_version:?}-dind'"
     docker pull docker:${docker_version:?}-dind
     echo
