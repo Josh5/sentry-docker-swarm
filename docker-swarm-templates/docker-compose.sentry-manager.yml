@@ -265,11 +265,11 @@ services:
           - ${PLACEMENT_CONSTRAINT}
       labels:
         #### -- Enable traefik router for this service
-        - "traefik.enable=true"
-        - "traefik.http.services.swarm-sentry.loadbalancer.server.port=80"
-        - "traefik.http.routers.swarm-sentry.entrypoints=web"
+        - 'traefik.enable=true'
+        - 'traefik.http.services.swarm-sentry.loadbalancer.server.port=80'
+        - 'traefik.http.routers.swarm-sentry.entrypoints=web'
         # Configure router domain
-        - "traefik.http.routers.swarm-sentry.rule=Host(`${TRAEFIK_DOMAIN}`)"
+        - 'traefik.http.routers.swarm-sentry.rule=Host(`${TRAEFIK_DOMAIN}`)'
     environment:
       NETWORK_NAME: sentry-private
       SENTRY_DATA_PATH: ${SENTRY_DATA_PATH}
@@ -284,7 +284,7 @@ services:
       - target: 80
         published: 9080
         mode: host
-    entrypoint: "sh"
+    entrypoint: 'sh'
     command: |
       -c '
       set -e
