@@ -5,8 +5,8 @@
 # File Created: Monday, 21st October 2024 10:19:15 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 2nd December 2024 11:00:38 pm
-# Modified By: Josh5 (jsunnex@gmail.com)
+# Last Modified: Monday, 1st September 2025 7:07:42 pm
+# Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
 echo "--- Create backup of original docker-compose.yml file ---"
@@ -82,7 +82,9 @@ x-logging-base: &logging-base
       fluentd-address: "localhost:24224"
       tag: "sentry"
       fluentd-request-ack: "true"
-      fluentd-async: "false"
+      fluentd-async: "true"
+      fluentd-async-reconnect-interval: "5s"
+      fluentd-retry-wait: 5s
       labels: "source.service,source.version"
 
 EOF
