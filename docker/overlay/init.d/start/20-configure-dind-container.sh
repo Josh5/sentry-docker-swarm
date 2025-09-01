@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:37:05 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 1st September 2025 12:10:21 pm
+# Last Modified: Monday, 1st September 2025 12:14:08 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -71,15 +71,19 @@ echo "DIND_NET_CONN_CMD=${DIND_NET_CONN_CMD:?}" >>${dind_cache_path:?}/new-dind-
 echo "  - Checking if config has changed since last run"
 if ! cmp -s "${dind_cache_path:?}/new-dind-run-config.env" "${dind_cache_path:?}/current-dind-run-config.env"; then
     echo "    - Env has changed. Stopping up old dind container due to possible config update"
-    docker stop --time 120 ${dind_continer_name} &>/dev/null || true
-    docker rm ${dind_continer_name} &>/dev/null || true
+    docker stop --time 120 "${dind_continer_name}" &>/dev/null || true
+    docker rm "${dind_continer_name}" &>/dev/null || true
     mv -fv "${dind_cache_path:?}/new-dind-run-config.env" "${dind_cache_path:?}/current-dind-run-config.env"
+elif [ "$(cat ${SENTRY_DATA_PATH:?}/self_hosted/.z-deployment-id.txt 2>/dev/null)" != "${DEPLOYMENT_ID:-}" ]; then
+    echo "  - Deployment ID '${DEPLOYMENT_ID:-}' has changed since last run. Previous ID was '$(cat ${SENTRY_DATA_PATH:?}/self_hosted/.z-deployment-id.txt 2>/dev/null)'. Stopping DIND container."
+    docker stop --time 120 "${dind_continer_name}" &>/dev/null || true
+    docker rm "${dind_continer_name}" &>/dev/null || true
 else
     echo "    - Env has not changed."
 fi
 
 echo "  - Ensure DIND container is running"
-if ! docker ps | grep -q ${dind_continer_name}; then
+if ! docker ps | grep -q "${dind_continer_name}"; then
     echo "    - Fetching latest docker in docker image 'docker:${docker_version:?}-dind'"
     docker pull docker:${docker_version:?}-dind
     echo
@@ -95,7 +99,7 @@ else
 fi
 
 echo "--- Install Sentry installation and configuration dependencies into DIND container ---"
-echo "  - Install bash and coreutils packages in DIND container required for install script"
+echo "  - Install required installation dependency packages in DIND container required for install script"
 ${cmd_prefix:?} sh -c "apk add bash coreutils cgroup-tools git"
 echo "  - Install yq tool to edit Sentry config.yml"
 wget -q "https://github.com/mikefarah/yq/releases/download/v4.43.1/yq_linux_amd64" \
