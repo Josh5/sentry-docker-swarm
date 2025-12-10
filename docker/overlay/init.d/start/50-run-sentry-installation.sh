@@ -10,12 +10,20 @@
 ###
 
 # Check if we should perform a "nuclear clean" before running the installation
-if [ "${EXEC_NUCLEAR_CLEAN:-}" = "true" ]; then
-    echo "--- Running a nuclear clean of the Kafka and Zookeeper volumes ---"
-    ${docker_compose_cmd:?} down --volumes --remove-orphans
-    ${docker_cmd:?} volume rm sentry-kafka || true
-    ${docker_cmd:?} volume rm sentry-zookeeper || true
-    rm -f ${SENTRY_DATA_PATH:?}/self_hosted/.z-installed-sentry-version.txt
+nuclear_clean_key_file="${SENTRY_DATA_PATH:?}/self_hosted/.z-nuclear-clean-key.txt"
+exec_nuclear_clean_value="${EXEC_NUCLEAR_CLEAN:-false}"
+if [ "${exec_nuclear_clean_value}" != "false" ]; then
+    last_nuclear_clean_key=$(cat "${nuclear_clean_key_file}" 2>/dev/null || echo "")
+    if [ "${exec_nuclear_clean_value}" != "${last_nuclear_clean_key}" ]; then
+        echo "--- Running a nuclear clean of the Kafka and Zookeeper volumes ---"
+        ${docker_compose_cmd:?} down --volumes --remove-orphans
+        ${docker_cmd:?} volume rm sentry-kafka || true
+        ${docker_cmd:?} volume rm sentry-zookeeper || true
+        rm -f ${SENTRY_DATA_PATH:?}/self_hosted/.z-installed-sentry-version.txt
+        echo "${exec_nuclear_clean_value}" >"${nuclear_clean_key_file}"
+    else
+        echo "--- Skipping nuclear clean because the provided EXEC_NUCLEAR_CLEAN value matches the previous key '${last_nuclear_clean_key:-}'. ---"
+    fi
 fi
 
 # Check that the self-hosted images exist. If they do not, we need to force a re-installation
