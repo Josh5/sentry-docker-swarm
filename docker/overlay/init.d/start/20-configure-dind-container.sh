@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:37:05 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 1st September 2025 6:50:37 pm
+# Last Modified: Friday, 12th December 2025 1:27:51 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -76,7 +76,7 @@ echo "DIND_NET_CONN_CMD=${DIND_NET_CONN_CMD:?}" >>${dind_cache_path:?}/new-dind-
 
 echo "  - Checking if config has changed since last run"
 if ! cmp -s "${dind_cache_path:?}/new-dind-run-config.env" "${dind_cache_path:?}/current-dind-run-config.env"; then
-    echo "    - Env has changed. Stopping up old dind container due to possible config update"
+    echo "    - Env has changed. Stopping old dind container due to possible config update"
     docker stop --time 120 "${dind_continer_name}" &>/dev/null || true
     docker rm "${dind_continer_name}" &>/dev/null || true
     mv -fv "${dind_cache_path:?}/new-dind-run-config.env" "${dind_cache_path:?}/current-dind-run-config.env"
