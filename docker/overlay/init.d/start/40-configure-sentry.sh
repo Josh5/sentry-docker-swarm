@@ -5,8 +5,8 @@
 # File Created: Monday, 21st October 2024 11:23:14 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 21st October 2024 10:55:47 pm
-# Modified By: Josh5 (jsunnex@gmail.com)
+# Last Modified: Monday, 15th December 2025 8:21:33 pm
+# Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
 echo "--- Configure Sentry ---"
@@ -78,6 +78,67 @@ EOF
 echo "      - Insert 'SENTRY_CONF_CUSTOM' contents"
 echo -e "${SENTRY_CONF_CUSTOM:-}" >>"${SENTRY_DATA_PATH}/self_hosted/sentry/sentry.conf.tmp.py"
 ########### END sentry.conf.py ###########
+
+########### START sentry.conf.py PATCHES ###########
+#  ____       _       _                      _                                __
+# |  _ \ __ _| |_ ___| |__    ___  ___ _ __ | |_ _ __ _   _   ___ ___  _ __  / _| _ __  _   _
+# | |_) / _` | __/ __| '_ \  / __|/ _ \ '_ \| __| '__| | | | / __/ _ \| '_ \| |_ | '_ \| | | |
+# |  __/ (_| | || (__| | | | \__ \  __/ | | | |_| |  | |_| || (_| (_) | | | |  _|| |_) | |_| |
+# |_|   \__,_|\__\___|_| |_| |___/\___|_| |_|\__|_|   \__, (_)___\___/|_| |_|_|(_) .__/ \__, |
+#                                                     |___/                      |_|    |___/
+#
+
+# Fix issue where nodestore migrations fail to set read_through and delete_through against SENTRY_NODESTORE_OPTIONS for affected versions (>= 25.9.0)
+# This also adds compatibility with an external PG DB.
+#   Refs:
+#   - https://github.com/getsentry/self-hosted/issues/3960
+min_nodestore_version="25.9.0"
+if [[ -n "${SENTRY_VERSION:-}" && "$(printf '%s\n' "$SENTRY_VERSION" "$min_nodestore_version" | sort -V | tail -n1)" == "$SENTRY_VERSION" ]]; then
+    echo "  - Patching migration from Postgres to Nodestore"
+    force_nodestore_read_through=0
+    [[ "${FORCE_NODESTORE_READ_THROUGH:-}" =~ ^(1|true|True|TRUE)$ ]] && force_nodestore_read_through=1
+    force_nodestore_delete_through=0
+    [[ "${FORCE_NODESTORE_DELETE_THROUGH:-}" =~ ^(1|true|True|TRUE)$ ]] && force_nodestore_delete_through=1
+
+    if [ "${SENTRY_CUSTOM_DB_CONFIG:-}" = "true" ]; then
+        echo "      - Checking custom Postgres for existing nodestore rows"
+        pg_port_args=()
+        if [ -n "${SENTRY_POSTGRES_PORT:-}" ]; then
+            pg_port_args+=(-p "${SENTRY_POSTGRES_PORT}")
+        fi
+
+        nodestore_exists="$(${docker_compose_cmd:?} run --rm --no-deps -T \
+            -e PGPASSWORD="${SENTRY_DB_PASSWORD:-}" postgres \
+            psql -qAt -h "${SENTRY_POSTGRES_HOST:-postgres}" -U "${SENTRY_DB_USER:-postgres}" \
+            -d "${SENTRY_DB_NAME:-postgres}" "${pg_port_args[@]}" \
+            -c "select exists (select * from nodestore_node limit 1)" 2>/dev/null || true)"
+        nodestore_exists="${nodestore_exists//$'\r'/}"
+        nodestore_exists="${nodestore_exists//$'\n'/}"
+
+        if [[ "$nodestore_exists" == "t" ]]; then
+            echo "      - Nodestore rows detected. Forcing read/delete-through."
+            force_nodestore_read_through=1
+            force_nodestore_delete_through=1
+        else
+            echo "      - Nodestore rows not detected (result: ${nodestore_exists:-empty})."
+        fi
+    fi
+
+    if [[ $force_nodestore_read_through -eq 1 || $force_nodestore_delete_through -eq 1 ]]; then
+        echo "      - Patching Nodestore read/delete-through for Sentry >= ${min_nodestore_version}"
+        {
+            echo "SENTRY_NODESTORE_OPTIONS.update({"
+            [[ $force_nodestore_read_through -eq 1 ]] && echo '    "read_through": True,'
+            [[ $force_nodestore_delete_through -eq 1 ]] && echo '    "delete_through": True,'
+            echo "})"
+        } >>"${SENTRY_DATA_PATH}/self_hosted/sentry/sentry.conf.tmp.py"
+    else
+        echo "      - Skipping Nodestore patch; FORCE_NODESTORE_* not set"
+    fi
+else
+    echo "  - Skipping Nodestore patch; SENTRY_VERSION (${SENTRY_VERSION}) < ${min_nodestore_version}"
+fi
+########### END sentry.conf.py PATCHES ###########
 
 ########### START config.yml ###########
 echo "  - Generate config.tmp.yml"

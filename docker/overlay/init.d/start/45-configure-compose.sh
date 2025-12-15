@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:19:15 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 15th December 2025 4:31:49 pm
+# Last Modified: Monday, 15th December 2025 8:00:07 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -207,22 +207,26 @@ fi
 echo "  - Set compose command"
 export docker_compose_cmd="${cmd_prefix:?} docker compose -f ./docker-compose.yml -f ./docker-compose.custom.yml"
 
-#   ____                                        ____             __ _         ____       _       _
-#  / ___|___  _ __ ___  _ __   ___  ___  ___   / ___|___  _ __  / _(_) __ _  |  _ \ __ _| |_ ___| |__   ___  ___
-# | |   / _ \| '_ ` _ \| '_ \ / _ \/ __|/ _ \ | |   / _ \| '_ \| |_| |/ _` | | |_) / _` | __/ __| '_ \ / _ \/ __|
-# | |__| (_) | | | | | | |_) | (_) \__ \  __/ | |__| (_) | | | |  _| | (_| | |  __/ (_| | || (__| | | |  __/\__ \
-#  \____\___/|_| |_| |_| .__/ \___/|___/\___|  \____\___/|_| |_|_| |_|\__, | |_|   \__,_|\__\___|_| |_|\___||___/
-#                      |_|                                            |___/
+########### START docker-compose.yml PATCHES ###########
+#   ____       _       _        ____                                        ____             __ _
+#  |  _ \ __ _| |_ ___| |__    / ___|___  _ __ ___  _ __   ___  ___  ___   / ___|___  _ __  / _(_) __ _
+#  | |_) / _` | __/ __| '_ \  | |   / _ \| '_ ` _ \| '_ \ / _ \/ __|/ _ \ | |   / _ \| '_ \| |_| |/ _` |
+#  |  __/ (_| | || (__| | | | | |__| (_) | | | | | | |_) | (_) \__ \  __/ | |__| (_) | | | |  _| | (_| |
+#  |_|   \__,_|\__\___|_| |_|  \____\___/|_| |_| |_| .__/ \___/|___/\___|  \____\___/|_| |_|_| |_|\__, |
+#                                                  |_|                                            |___/
 #
 
 # Modify consumer for snuba for affected versions (< 25.9.0)
+#   Refs:
+#   - https://github.com/getsentry/snuba/issues/5707
 snuba_patch_cutoff_version="25.9.0"
 if [ "$(printf '%s\n' "${SENTRY_VERSION:?}" "${snuba_patch_cutoff_version}" | sort -V | head -n1)" = "${SENTRY_VERSION:?}" ] && [ "${SENTRY_VERSION:?}" != "${snuba_patch_cutoff_version}" ]; then
     echo "  - Replacing snuba 'rust-consumer' with 'consumer'"
-    # REF: https://github.com/getsentry/snuba/issues/5707
     sed -i "s/rust-consumer/consumer/g" "${SENTRY_DATA_PATH}/self_hosted/docker-compose.yml"
     echo "snuba-patch - https://github.com/getsentry/snuba/issues/5707" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
 fi
+
+########### END docker-compose.yml PATCHES ###########
 
 if ! cmp -s "${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt" "${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.txt"; then
     echo "  - A breaking change was made to the docker compose stack. Stopping it before continuing to avoid issues while applying updates."
