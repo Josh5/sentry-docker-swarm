@@ -103,7 +103,7 @@ if [[ -n "${SENTRY_VERSION:-}" && "$(printf '%s\n' "$SENTRY_VERSION" "$min_nodes
         echo "      - Correcting Nodestore bucket existence check on installer"
         condition_target='if [[ $(echo "$bucket_list" | tail -1 | awk '"'"'{print $3}'"'"') != '"'"'s3://nodestore'"'"' ]]; then'
         condition_replacement='if ! echo "$bucket_list" | awk '"'"'{print $3}'"'"' | grep -qx '"'"'s3://nodestore'"'"'; then'
-        python3 "${HELPERS_DIR}/replace_in_file.py" "${nodestore_bootstrap}" "${condition_target}" "${condition_replacement}"
+        bash "${HELPERS_DIR}/replace_in_file.sh" "${nodestore_bootstrap}" "${condition_target}" "${condition_replacement}"
     else
         echo "      - Skipping Nodestore bucket patch; file not found"
     fi
