@@ -5,8 +5,8 @@
 # File Created: Monday, 21st October 2024 11:34:52 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 21st October 2024 10:53:02 pm
-# Modified By: Josh5 (jsunnex@gmail.com)
+# Last Modified: Monday, 15th December 2025 4:02:11 pm
+# Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
 # Check if we should perform a "nuclear clean" before running the installation
@@ -15,10 +15,9 @@ exec_nuclear_clean_value="${EXEC_NUCLEAR_CLEAN:-false}"
 if [ "${exec_nuclear_clean_value}" != "false" ]; then
     last_nuclear_clean_key=$(cat "${nuclear_clean_key_file}" 2>/dev/null || echo "")
     if [ "${exec_nuclear_clean_value}" != "${last_nuclear_clean_key}" ]; then
-        echo "--- Running a nuclear clean of the Kafka and Zookeeper volumes ---"
+        echo "--- Running a nuclear clean of the Kafka volumes ---"
         ${docker_compose_cmd:?} down --volumes --remove-orphans
         ${docker_cmd:?} volume rm sentry-kafka || true
-        ${docker_cmd:?} volume rm sentry-zookeeper || true
         rm -f ${SENTRY_DATA_PATH:?}/self_hosted/.z-installed-sentry-version.txt
         echo "${exec_nuclear_clean_value}" >"${nuclear_clean_key_file}"
     else
