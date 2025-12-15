@@ -84,6 +84,15 @@ log_error() { __log_line "❌ $@"; }
 log_success() { __log_line "✅ $@"; }
 
 ################################################
+# --- Enforce minimum supported Sentry version
+#
+min_sentry_version="25.5.1"
+if [ "$(printf '%s\n' "${SENTRY_VERSION:?}" "${min_sentry_version}" | sort -V | head -n1)" != "${min_sentry_version}" ]; then
+    log_error "Minimum supported SENTRY_VERSION is ${min_sentry_version}, but found ${SENTRY_VERSION}"
+    exit 1
+fi
+
+################################################
 # --- Run through startup init scripts
 #
 echo
