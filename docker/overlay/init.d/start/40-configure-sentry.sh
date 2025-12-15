@@ -5,9 +5,12 @@
 # File Created: Monday, 21st October 2024 11:23:14 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 15th December 2025 8:21:33 pm
+# Last Modified: Monday, 15th December 2025 8:45:32 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HELPERS_DIR="$(cd "${SCRIPT_DIR}/../../defaults/helpers" && pwd)"
 
 echo "--- Configure Sentry ---"
 
@@ -95,6 +98,16 @@ echo -e "${SENTRY_CONF_CUSTOM:-}" >>"${SENTRY_DATA_PATH}/self_hosted/sentry/sent
 min_nodestore_version="25.9.0"
 if [[ -n "${SENTRY_VERSION:-}" && "$(printf '%s\n' "$SENTRY_VERSION" "$min_nodestore_version" | sort -V | tail -n1)" == "$SENTRY_VERSION" ]]; then
     echo "  - Patching migration from Postgres to Nodestore"
+    nodestore_bootstrap="${SENTRY_DATA_PATH}/self_hosted/install/bootstrap-s3-nodestore.sh"
+    if [ -f "${nodestore_bootstrap}" ]; then
+        echo "      - Correcting Nodestore bucket existence check on installer"
+        condition_target='if [[ $(echo "$bucket_list" | tail -1 | awk '"'"'{print $3}'"'"') != '"'"'s3://nodestore'"'"' ]]; then'
+        condition_replacement='if ! echo "$bucket_list" | awk '"'"'{print $3}'"'"' | grep -qx '"'"'s3://nodestore'"'"'; then'
+        python3 "${HELPERS_DIR}/replace_in_file.py" "${nodestore_bootstrap}" "${condition_target}" "${condition_replacement}"
+    else
+        echo "      - Skipping Nodestore bucket patch; file not found"
+    fi
+
     force_nodestore_read_through=0
     [[ "${FORCE_NODESTORE_READ_THROUGH:-}" =~ ^(1|true|True|TRUE)$ ]] && force_nodestore_read_through=1
     force_nodestore_delete_through=0
