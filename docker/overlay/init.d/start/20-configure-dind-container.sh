@@ -22,6 +22,7 @@ echo
 
 echo "  - Set DIND daemon args..."
 dind_daemon_args=""
+dind_daemon_args="${dind_daemon_args:-} --ipv6=false"
 if [ -n "${DIND_MTU:-}" ]; then
     dind_daemon_args="${dind_daemon_args:-} --mtu=${DIND_MTU:?}"
 fi
