@@ -1,0 +1,329 @@
+# ---------------
+# Sentry Self-Hosted
+#
+#   Deploys a docker service to manage a Sentry self-hosted docker compose configuration's
+#     - Configuration
+#     - Startup and shutdown
+#
+# ---------------
+# TODO:
+#       -
+#
+# ---------------
+# Config (paste into portainer advance env text input):
+#
+# <config_start>
+#   #@ Placement
+#   #-    Configure a placement constraint to where the container will be run.
+#   #-    Examples:
+#   #-        - node.hostname==<hostname>
+#   #-        - engine.labels.fs-access.<worker-hostname>.mnt==true
+#   #-        - node.role!=manager
+#   PLACEMENT_CONSTRAINT=node.hostname==<hostname>
+#   #@ Traefik Config
+#   #-  - TRAEFIK_DOMAIN -
+#   #-    The Domiain where this is accessed at.
+#   TRAEFIK_DOMAIN=sentry.domain.com
+#   #@ Container Config
+#   #-  - SENTRY_DATA_PATH -
+#   SENTRY_DATA_PATH=/mnt/user/appdata/sentry
+#   #@ Sentry config
+#   SENTRY_BEACON_DISABLED=true
+#   SENTRY_SECRET_KEY=supersecretkey
+#   SENTRY_URL_PREFIX=https://sentry.example.com
+#   SENTRY_CUSTOM_DB_CONFIG=false
+#   SENTRY_DB_NAME=postgres
+#   SENTRY_DB_USER=postgres
+#   SENTRY_DB_PASSWORD=
+#   SENTRY_POSTGRES_HOST=postgres
+#   SENTRY_POSTGRES_PORT=5432
+#   FORCE_NODESTORE_READ_THROUGH=false
+#   FORCE_NODESTORE_DELETE_THROUGH=false
+#   SENTRY_EVENT_RETENTION_DAYS=90
+#   SENTRY_COMPOSE_PROFILES=feature-complete
+#   SENTRY_CUSTOM_MAIL_SERVER_CONFIG=false
+#   SENTRY_EMAIL_HOST=smtp.custom-server.com
+#   SENTRY_EMAIL_PORT=25
+#   SENTRY_EMAIL_USER=username
+#   SENTRY_EMAIL_PASSWORD=password
+#   SENTRY_EMAIL_USE_TLS=false
+#   SENTRY_EMAIL_USE_SSL=false
+#   SENTRY_SERVER_EMAIL=admin@email.com
+#   SENTRY_MAIL_HOST=email.com
+#   SENTRY_FILESTORE_BACKEND_S3_BUCKET=
+#   SENTRY_INITIAL_ADMIN_EMAIL=josh@email.com
+#   #@ Manager config
+#   #-  - DOCKER_VERSION -
+#   #     Set the version of Docker to use
+#   #     Leave blank to use the default. Note that different versions of Sentry require different versions of Docker compose and even possibly Docker.
+#   #     NOTE:
+#   #       - Sentry Self-Hosted > v24.8.0 and newer require Docker v27+ due to changes
+#   #         in `docker compose` CLI flags.
+#   #       - For older versions (e.g., v24.6.0), Docker v26 or earlier may be required.
+#   #       - See: https://github.com/getsentry/self-hosted/commit/559e7324686b8b0a7fa6f4783013cbb7a81d7080
+#   DOCKER_VERSION=
+#   #-  - SENTRY_VERSION -
+#   #     Set the version of Sentry to deploy
+#   #     Releases: https://github.com/getsentry/self-hosted/releases
+#   SENTRY_VERSION=25.5.1
+#   #-  - SENTRY_CONF_CUSTOM -
+#   #     Adds additional config options to sentry.conf.py file during the install.
+#   SENTRY_CONF_CUSTOM=OIDC_CLIENT_ID=""\nOIDC_CLIENT_SECRET=""
+#   #-  - SENTRY_ENV_CUSTOM -
+#   #     Adds additional config options to .env file during the install.
+#   SENTRY_ENV_CUSTOM=KAFKA_LOG_RETENTION_BYTES=21474836480\nKAFKA_LOG_SEGMENT_BYTES=1073741824\nKAFKA_LOG_RETENTION_CHECK_INTERVAL_MS=300000\nKAFKA_LOG_SEGMENT_DELETE_DELAY_MS=60000
+#   #-  - ADDITIONAL_APT_PACKAGES -
+#   #     Installs additional APT packages into the Sentry image.
+#   ADDITIONAL_APT_PACKAGES=python3-dev python3-pip libldap2-dev libsasl2-dev libssl-dev
+#   #-  - ADDITIONAL_PYTHON_MODULES -
+#   #     Installs additional Python modules into the Sentry image.
+#   ADDITIONAL_PYTHON_MODULES=python-ldap
+#   #-  - BACKUP_VOLUMES_ON_UPDATE -
+#   #     Create a volume backup prior to installing an update. Note, this could use a lot of disk space. Ensure you have enough available.
+#   BACKUP_VOLUMES_ON_UPDATE=false
+#   #-  - EXEC_NUCLEAR_CLEAN -
+#   #     Force a clear of the kafka and zookeeper volumes once per unique key. Set to 'false' to disable.
+#   EXEC_NUCLEAR_CLEAN=false
+#   #-  - SKIP_ADMIN_USER_CREATE -
+#   #     Skip the command to generate the initial Admin user
+#   SKIP_ADMIN_USER_CREATE=false
+#   #-  - ALWAYS_FORCE_RECREATE -
+#   #     Add --force-recreate flag to docker compose up
+#   ALWAYS_FORCE_RECREATE=false
+#   #-  - WEB_ONLY_MAINTENANCE_MODE -
+#   #     Stop all services and only run the web service and required dependencies as a "maintenance mode"
+#   WEB_ONLY_MAINTENANCE_MODE=false
+#   #-  - DEPLOYMENT_ID -
+#   #     If this is modified between manager starts, it will stop all Sentry services and restart them.
+#   DEPLOYMENT_ID=default
+#   #-  - KEEP_ALIVE -
+#   #     Keep services alive between restarts (will still recreate if the configuration updates).
+#   KEEP_ALIVE=true
+#   #-  - ENABLE_LOG_MONITOR -
+#   #     Enable a monitor loop that will watch the stack logs for common error logs.
+#   ENABLE_LOG_MONITOR=true
+#   #-  - EXIT_ON_ERRORS_IN_LOGS -
+#   #     Exit the monitor service if any of the common error logs are seen in the stack logs. Requires ENABLE_LOG_MONITOR=true.
+#   EXIT_ON_ERRORS_IN_LOGS=false
+#   #-  - NOTIFY_DISCORD_FOR_ERRORS_IN_LOGS -
+#   #     Post a message to a Discord webhook if any common error logs are seen in the stack logs. Leave empty to disable.
+#   NOTIFY_DISCORD_FOR_ERRORS_IN_LOGS=
+#   #-  - DIND_CPU_SHARES -
+#   #     Sets a CPU shares limit on the Sentry DIND container. Nested services will not be able to exceed this value.
+#   #     Set this to 1024 to apply system defaults. If left empty, a shares value of 512 will be applied.
+#   DIND_CPU_SHARES=512
+#   #-  - DIND_CPU_PERCENT -
+#   #     Impose a CPU CFS quota on the container calculated by the number of CPUs available acting as the effective CPU ceiling.
+#   #     Valid values should within the range of 1-100. If left empty, value of 75 will be applied.
+#   DIND_CPU_PERCENT=75
+#   #-  - DIND_MEMLIMIT -
+#   #     Sets a memory limit on the Sentry DIND container. Nested services will not be able to exceed this value.
+#   #     Set this to 0 to apply no memory limit. Use a suffix of b, k, m, g, to indicate bytes, kilobytes, megabytes, or gigabytes.
+#   DIND_MEMLIMIT=0
+#   #-  - REDIS_MEMLIMIT -
+#   #     Sets a memory limit on the Sentry Redis container.
+#   #     Set this to 0 to apply no memory limit. Use a suffix of b, k, m, g, to indicate bytes, kilobytes, megabytes, or gigabytes.
+#   #     NOTE: This must be less than DIND_MEMLIMIT if 0 is not set.
+#   REDIS_MEMLIMIT=0
+#   #-  - CUSTOM_LOG_DRIVER -
+#   #     Configure the docker stack to use a custom logging driver. Options "local", "json-file", "fluentd"
+#   CUSTOM_LOG_DRIVER=fluentd
+#   #-  - FLUENTD_FORWARD_ADDRESS -
+#   #     The address for the fluentd logging driver.
+#   FLUENTD_FORWARD_ADDRESS=fluentd:24224
+#   #-  - FLUENTD_FORWARD_SHARED_KEY -
+#   #     Enable TLS with fluentd forward.
+#   FLUENTD_FORWARD_SHARED_KEY=1234567890qwertyuiop
+#   #-  - FLUENTD_FORWARD_USE_TLS -
+#   #     Enable TLS with fluentd forward.
+#   FLUENTD_FORWARD_USE_TLS=false
+#   #-  - FLUENTD_FORWARD_VERIFY_CERT -
+#   #     Verify TLS certificates with fluentd forward.
+#   FLUENTD_FORWARD_VERIFY_CERT=false
+#   #-  - FLUENTD_FORWARD_VERIFY_CERT_HOSTNAME -
+#   #     Verifies hostname of servers and certificates with fluentd forward.
+#   FLUENTD_FORWARD_VERIFY_CERT_HOSTNAME=false
+#   #-  - FLUENTD_HTTP_ADDRESS -
+#   #     The address for the fluentd logging driver.
+#   FLUENTD_HTTP_ADDRESS=
+#   #-  - FLUENTD_TAG -
+#   #     A tag to give all logs forwarded to FLUENTD_FORWARD_ADDRESS. Will default to 'sentry' if not set.
+#   FLUENTD_TAG=sentry
+#   #-  - FLUENTD_ADDITIONAL_SOURCE_TAGS -
+#   #     A comma separated list of key:value pairs to append to each log line
+#   FLUENTD_ADDITIONAL_SOURCE_TAGS=env:sentry-eu,region:eu-west-1
+# <config_end>
+#
+# ---------------
+# Setup Script
+#
+# <script_start>
+#   > mkdir -p ${SENTRY_DATA_PATH:?}
+#   > sudo chmod 755 ${SENTRY_DATA_PATH:?}
+#   > echo && echo "$(cd "${SENTRY_DATA_PATH:?}" && pwd)" && ls -la ${SENTRY_DATA_PATH:?}
+# <script_end>
+#
+# ---------------
+---
+networks:
+  swarm-public:
+    external: true
+  sentry-private:
+    # NOTE: This network needs to be manually created and needs to
+    #       be configured for manual container attachment
+    external: true
+
+services:
+  # -- MAIN SERVICE --
+  manager:
+    image: ghcr.io/josh5/sentry-docker-swarm@sha256:1afc6c762b7c056f2cc44c9323561eca2d3b3c9c65a0812298dee273a176a720
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 60s
+      placement:
+        constraints:
+          - ${PLACEMENT_CONSTRAINT}
+    environment:
+      NETWORK_NAME: sentry-private
+      DOCKER_VERSION: ${DOCKER_VERSION:-}
+      # Releases:
+      #   https://github.com/getsentry/self-hosted/releases
+      SENTRY_VERSION: ${SENTRY_VERSION:?}
+      SENTRY_BEACON_DISABLED: ${SENTRY_BEACON_DISABLED}
+      SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY}
+      SENTRY_URL_PREFIX: ${SENTRY_URL_PREFIX}
+      SENTRY_CUSTOM_DB_CONFIG: ${SENTRY_CUSTOM_DB_CONFIG}
+      SENTRY_DB_NAME: ${SENTRY_DB_NAME}
+      SENTRY_DB_USER: ${SENTRY_DB_USER}
+      SENTRY_DB_PASSWORD: ${SENTRY_DB_PASSWORD}
+      SENTRY_POSTGRES_HOST: ${SENTRY_POSTGRES_HOST}
+      SENTRY_POSTGRES_PORT: ${SENTRY_POSTGRES_PORT}
+      FORCE_NODESTORE_READ_THROUGH: ${FORCE_NODESTORE_READ_THROUGH:-false}
+      FORCE_NODESTORE_DELETE_THROUGH: ${FORCE_NODESTORE_DELETE_THROUGH:-false}
+      SENTRY_EVENT_RETENTION_DAYS: ${SENTRY_EVENT_RETENTION_DAYS:-90}
+      SENTRY_COMPOSE_PROFILES: ${SENTRY_COMPOSE_PROFILES:-feature-complete}
+      SENTRY_CUSTOM_MAIL_SERVER_CONFIG: ${SENTRY_CUSTOM_MAIL_SERVER_CONFIG}
+      SENTRY_EMAIL_HOST: ${SENTRY_EMAIL_HOST}
+      SENTRY_EMAIL_PORT: ${SENTRY_EMAIL_PORT}
+      SENTRY_EMAIL_USER: ${SENTRY_EMAIL_USER}
+      SENTRY_EMAIL_PASSWORD: ${SENTRY_EMAIL_PASSWORD}
+      SENTRY_EMAIL_USE_TLS: ${SENTRY_EMAIL_USE_TLS}
+      SENTRY_EMAIL_USE_SSL: ${SENTRY_EMAIL_USE_SSL}
+      SENTRY_SERVER_EMAIL: ${SENTRY_SERVER_EMAIL}
+      SENTRY_MAIL_HOST: ${SENTRY_MAIL_HOST}
+      SENTRY_FILESTORE_BACKEND_S3_BUCKET: ${SENTRY_FILESTORE_BACKEND_S3_BUCKET}
+      SENTRY_INITIAL_ADMIN_EMAIL: ${SENTRY_INITIAL_ADMIN_EMAIL}
+      ADDITIONAL_APT_PACKAGES: ${ADDITIONAL_APT_PACKAGES}
+      ADDITIONAL_PYTHON_MODULES: ${ADDITIONAL_PYTHON_MODULES}
+      SENTRY_CONF_CUSTOM: ${SENTRY_CONF_CUSTOM}
+      SENTRY_ENV_CUSTOM: ${SENTRY_ENV_CUSTOM}
+      SENTRY_DATA_PATH: ${SENTRY_DATA_PATH}
+      BACKUP_VOLUMES_ON_UPDATE: ${BACKUP_VOLUMES_ON_UPDATE:-false}
+      EXEC_NUCLEAR_CLEAN: ${EXEC_NUCLEAR_CLEAN:-false}
+      SKIP_ADMIN_USER_CREATE: ${SKIP_ADMIN_USER_CREATE:-false}
+      ALWAYS_FORCE_RECREATE: ${ALWAYS_FORCE_RECREATE:-false}
+      WEB_ONLY_MAINTENANCE_MODE: ${WEB_ONLY_MAINTENANCE_MODE:-false}
+      DEPLOYMENT_ID: ${DEPLOYMENT_ID:-default}
+      KEEP_ALIVE: ${KEEP_ALIVE:-true}
+      ENABLE_LOG_MONITOR: ${ENABLE_LOG_MONITOR:-true}
+      EXIT_ON_ERRORS_IN_LOGS: ${EXIT_ON_ERRORS_IN_LOGS:-false}
+      NOTIFY_DISCORD_FOR_ERRORS_IN_LOGS: ${NOTIFY_DISCORD_FOR_ERRORS_IN_LOGS:-}
+      DIND_CPU_SHARES: ${DIND_CPU_SHARES:-512}
+      DIND_CPU_PERCENT: ${DIND_CPU_PERCENT:-75}
+      DIND_MEMLIMIT: ${DIND_MEMLIMIT:-0}
+      REDIS_MEMLIMIT: ${REDIS_MEMLIMIT:-0}
+      CUSTOM_LOG_DRIVER: ${CUSTOM_LOG_DRIVER:-local}
+      FLUENTD_FORWARD_ADDRESS: ${FLUENTD_FORWARD_ADDRESS:-}
+      FLUENTD_FORWARD_SHARED_KEY: ${FLUENTD_FORWARD_SHARED_KEY:-1234567890qwertyuiop}
+      FLUENTD_FORWARD_USE_TLS: ${FLUENTD_FORWARD_USE_TLS:-true}
+      FLUENTD_FORWARD_VERIFY_CERT: ${FLUENTD_FORWARD_VERIFY_CERT:-false}
+      FLUENTD_FORWARD_VERIFY_CERT_HOSTNAME: ${FLUENTD_FORWARD_VERIFY_CERT_HOSTNAME:-false}
+      FLUENTD_HTTP_ADDRESS: ${FLUENTD_HTTP_ADDRESS:-}
+      FLUENTD_TAG: ${FLUENTD_TAG:-}
+      FLUENTD_ADDITIONAL_SOURCE_TAGS: ${FLUENTD_ADDITIONAL_SOURCE_TAGS:-}
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: bind
+        source: ${SENTRY_DATA_PATH}
+        target: ${SENTRY_DATA_PATH}
+
+  # -- REVERSE PROXY --
+  proxy:
+    image: library/nginx@sha256:341bf0f3ce6c5277d6002cf6e1fb0319fa4252add24ab6a0e262e0056d313208
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 10s
+      placement:
+        constraints:
+          - ${PLACEMENT_CONSTRAINT}
+      labels:
+        #### -- Enable traefik router for this service
+        - 'traefik.enable=true'
+        - 'traefik.http.services.swarm-sentry.loadbalancer.server.port=80'
+        - 'traefik.http.routers.swarm-sentry.entrypoints=web'
+        # Configure router domain
+        - 'traefik.http.routers.swarm-sentry.rule=Host(`${TRAEFIK_DOMAIN}`)'
+    environment:
+      NETWORK_NAME: sentry-private
+      SENTRY_DATA_PATH: ${SENTRY_DATA_PATH}
+    volumes:
+      - type: bind
+        source: ${SENTRY_DATA_PATH}
+        target: ${SENTRY_DATA_PATH}
+    networks:
+      - swarm-public
+      - sentry-private
+    ports:
+      - target: 80
+        published: 9080
+        mode: host
+    entrypoint: 'sh'
+    command: |
+      -c '
+      set -e
+
+      dind_continer_name="sentry-swarm-dind"
+
+      echo "Waiting for Sentry manager container..."
+      sleep 5
+      i=1
+      while [ $$i -le 60 ]; do
+        if [ -f "$${SENTRY_DATA_PATH:?}/self_hosted/.z-manager-service-running.txt" ]; then
+            echo "  - The Sentry manager container is running"
+            break
+        fi
+        echo "  - Sentry manager container check #$$i - Not yet running. Recheck in 10 seconds..."
+        sleep 10
+        i=$$((i + 1))
+      done
+      echo
+
+      echo "Configuring Nginx proxy..."
+
+      # Try new location first
+      if [ -f "$${SENTRY_DATA_PATH:?}/self_hosted/nginx.conf" ]; then
+        nginx_conf="$${SENTRY_DATA_PATH:?}/self_hosted/nginx.conf"
+        echo "  - Using new nginx.conf location: $${nginx_conf}"
+      elif [ -f "$${SENTRY_DATA_PATH:?}/self_hosted/nginx/nginx.conf" ]; then
+        nginx_conf="$${SENTRY_DATA_PATH:?}/self_hosted/nginx/nginx.conf"
+        echo "  - Using legacy nginx.conf location: $${nginx_conf}"
+      else
+        echo "  - No valid nginx.conf found. Exit!"
+        exit 1
+      fi
+
+      cp -fv "$${nginx_conf:?}" "/etc/nginx/nginx.conf"
+      sed -i "s|server relay|server $${dind_continer_name:?}|" "/etc/nginx/nginx.conf"
+      sed -i "s|server web|server $${dind_continer_name:?}|" "/etc/nginx/nginx.conf"
+      cat /etc/nginx/nginx.conf
+      echo
+
+      echo "Running Nginx entrypoint..."
+      exec /docker-entrypoint.sh nginx -g "daemon off;"
+      '
