@@ -36,9 +36,12 @@ if [ "${PREVIOUS_SENTRY_VERSION:-}" != "${SENTRY_VERSION}" ]; then
     echo "  - Downloading Sentry version ${SENTRY_VERSION:?}"
     date_string=$(date +"%Y-%m-%d-%H%M%S")
     cd /tmp
-    wget -q "https://github.com/getsentry/self-hosted/archive/refs/tags/${SENTRY_VERSION:?}.tar.gz" \
-        -O "/tmp/${SENTRY_VERSION:?}.tar.gz"
-    tar xzf ${SENTRY_VERSION:?}.tar.gz
+    if ! wget -q "https://github.com/getsentry/self-hosted/archive/refs/tags/${SENTRY_VERSION:?}.tar.gz" \
+        -O "/tmp/${SENTRY_VERSION:?}.tar.gz"; then
+        echo "    - Failed to download Sentry version ${SENTRY_VERSION:?}. The version may not exist."
+        exit 1
+    fi
+    tar xzf "${SENTRY_VERSION:?}.tar.gz"
 
     echo "  - Backing up previous install to ${SENTRY_DATA_PATH}/update_backups/self_hosted-v${PREVIOUS_SENTRY_VERSION:-UNKNOWN}-${date_string}..."
     mkdir -p ${SENTRY_DATA_PATH}/update_backups
