@@ -186,6 +186,22 @@ else
     sed -i "s|^SENTRY_MAIL_HOST=.*|SENTRY_MAIL_HOST=${SENTRY_MAIL_HOST:?}|" "${SENTRY_DATA_PATH}"/self_hosted/.env.custom
 fi
 
+# Configure GitHub
+if [ "X${SENTRY_GITHUB_APP_ID:-}${SENTRY_GITHUB_APP_NAME:-}${SENTRY_GITHUB_APP_CLIENT_ID:-}${SENTRY_GITHUB_APP_CLIENT_SECRET:-}${SENTRY_GITHUB_APP_PRIVATE_KEY:-}" != "X" ]; then
+    echo "      - Configure GitHub app details"
+    yq eval -i ".\"github-login.extended-permissions\" = [\"${SENTRY_GITHUB_LOGIN_EXTENDED_PERMISSIONS:-repo}\"]" "${SENTRY_DATA_PATH}/self_hosted/sentry/config.tmp.yml"
+    yq eval -i ".\"github-app.id\" = ${SENTRY_GITHUB_APP_ID:?}" "${SENTRY_DATA_PATH}/self_hosted/sentry/config.tmp.yml"
+    yq eval -i ".\"github-app.name\" = \"${SENTRY_GITHUB_APP_NAME:?}\"" "${SENTRY_DATA_PATH}/self_hosted/sentry/config.tmp.yml"
+    if [ "X${SENTRY_GITHUB_APP_WEBHOOK_SECRET:-}" != "X" ]; then
+        yq eval -i ".\"github-app.webhook-secret\" = \"${SENTRY_GITHUB_APP_WEBHOOK_SECRET}\"" "${SENTRY_DATA_PATH}/self_hosted/sentry/config.tmp.yml"
+    fi
+    yq eval -i ".\"github-app.client-id\" = \"${SENTRY_GITHUB_APP_CLIENT_ID:?}\"" "${SENTRY_DATA_PATH}/self_hosted/sentry/config.tmp.yml"
+    yq eval -i ".\"github-app.client-secret\" = \"${SENTRY_GITHUB_APP_CLIENT_SECRET:?}\"" "${SENTRY_DATA_PATH}/self_hosted/sentry/config.tmp.yml"
+    yq eval -i ".\"github-app.private-key\" = strenv(SENTRY_GITHUB_APP_PRIVATE_KEY)" "${SENTRY_DATA_PATH}/self_hosted/sentry/config.tmp.yml"
+else
+    echo "      - Skipping GitHub app config"
+fi
+
 # Configure Filestore
 if [ "X${SENTRY_FILESTORE_BACKEND_S3_BUCKET:-}" != "X" ]; then
     echo "      - Configure custom Sentry S3 filestore backend"
