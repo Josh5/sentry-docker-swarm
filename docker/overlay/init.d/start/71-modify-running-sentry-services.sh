@@ -18,8 +18,8 @@ echo
 
 echo "--- Configure Redis memory usage ---"
 if [ "${REDIS_MEMLIMIT:-}" != "0" ]; then
-    echo "  - Configure Redis maxmemory-policy to volatile-lru"
-    ${docker_compose_cmd:?} exec redis redis-cli CONFIG SET maxmemory-policy volatile-lru
+    echo "  - Configure Redis maxmemory-policy to ${REDIS_MAXMEMORY_POLICY:-volatile-lru}"
+    ${docker_compose_cmd:?} exec redis redis-cli CONFIG SET maxmemory-policy "${REDIS_MAXMEMORY_POLICY:-volatile-lru}"
     echo "  - Configure Redis maxmemory to ${REDIS_MEMLIMIT}"
     ${docker_compose_cmd:?} exec redis redis-cli CONFIG SET maxmemory ${REDIS_MEMLIMIT:?}
 else

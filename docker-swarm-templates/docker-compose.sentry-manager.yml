@@ -136,6 +136,10 @@
 #   #     Set this to 0 to apply no memory limit. Use a suffix of b, k, m, g, to indicate bytes, kilobytes, megabytes, or gigabytes.
 #   #     NOTE: This must be less than DIND_MEMLIMIT if 0 is not set.
 #   REDIS_MEMLIMIT=0
+#   #-  - REDIS_MAXMEMORY_POLICY -
+#   #     Sets the Redis eviction policy applied when REDIS_MEMLIMIT is non-zero.
+#   #     Upstream defaults to volatile-lru. For debugging post-process cache loss, temporarily try noeviction.
+#   REDIS_MAXMEMORY_POLICY=volatile-lru
 #   #-  - CUSTOM_LOG_DRIVER -
 #   #     Configure the docker stack to use a custom logging driver. Options "local", "json-file", "fluentd"
 #   CUSTOM_LOG_DRIVER=fluentd
@@ -254,6 +258,7 @@ services:
       DIND_CPU_PERCENT: ${DIND_CPU_PERCENT:-75}
       DIND_MEMLIMIT: ${DIND_MEMLIMIT:-0}
       REDIS_MEMLIMIT: ${REDIS_MEMLIMIT:-0}
+      REDIS_MAXMEMORY_POLICY: ${REDIS_MAXMEMORY_POLICY:-volatile-lru}
       CUSTOM_LOG_DRIVER: ${CUSTOM_LOG_DRIVER:-local}
       FLUENTD_FORWARD_ADDRESS: ${FLUENTD_FORWARD_ADDRESS:-}
       FLUENTD_FORWARD_SHARED_KEY: ${FLUENTD_FORWARD_SHARED_KEY:-1234567890qwertyuiop}
