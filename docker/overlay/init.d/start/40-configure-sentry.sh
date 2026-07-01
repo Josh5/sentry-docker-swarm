@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 11:23:14 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 15th December 2025 8:45:32 pm
+# Last Modified: Thursday, 2nd July 2026 6:08:33 am
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -20,6 +20,15 @@ cp -fv "${SENTRY_DATA_PATH}"/self_hosted/.env "${SENTRY_DATA_PATH}"/self_hosted/
 
 echo "      - Adding additional config to .env"
 echo -e "${SENTRY_ENV_CUSTOM:-}" >>"${SENTRY_DATA_PATH}"/self_hosted/.env.custom
+
+if [ -n "${SENTRY_TASKWORKER_CONCURRENCY:-}" ]; then
+    echo "      - Configure Sentry taskworker concurrency to ${SENTRY_TASKWORKER_CONCURRENCY}"
+    if grep -q '^SENTRY_TASKWORKER_CONCURRENCY=' "${SENTRY_DATA_PATH}/self_hosted/.env.custom"; then
+        sed -i "s|^SENTRY_TASKWORKER_CONCURRENCY=.*|SENTRY_TASKWORKER_CONCURRENCY=${SENTRY_TASKWORKER_CONCURRENCY}|" "${SENTRY_DATA_PATH}/self_hosted/.env.custom"
+    else
+        echo "SENTRY_TASKWORKER_CONCURRENCY=${SENTRY_TASKWORKER_CONCURRENCY}" >>"${SENTRY_DATA_PATH}/self_hosted/.env.custom"
+    fi
+fi
 ########### END .env ###########
 
 ########### START sentry.conf.py ###########
