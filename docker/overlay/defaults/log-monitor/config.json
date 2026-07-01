@@ -2,7 +2,8 @@
     {
         "service": "worker",
         "patterns": [
-            "OOM command not allowed when used memory > 'maxmemory'"
+            "OOM command not allowed when used memory > 'maxmemory'",
+            "Failed to resolve 'kafka"
         ]
     },
     {
