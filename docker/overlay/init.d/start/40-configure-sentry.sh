@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 11:23:14 am
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Thursday, 2nd July 2026 6:08:33 am
+# Last Modified: Thursday, 2nd July 2026 1:25:45 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -21,13 +21,55 @@ cp -fv "${SENTRY_DATA_PATH}"/self_hosted/.env "${SENTRY_DATA_PATH}"/self_hosted/
 echo "      - Adding additional config to .env"
 echo -e "${SENTRY_ENV_CUSTOM:-}" >>"${SENTRY_DATA_PATH}"/self_hosted/.env.custom
 
+set_env_custom_value() {
+    local key="$1"
+    local value="$2"
+    local env_file="${SENTRY_DATA_PATH}/self_hosted/.env.custom"
+    local tmp_file
+
+    tmp_file="$(mktemp)"
+
+    if grep -q "^${key}=" "${env_file}"; then
+        awk -v key="${key}" -v value="${value}" '
+            BEGIN {
+                replacement = key "=" value
+                replaced = 0
+            }
+            $0 ~ ("^" key "=") {
+                if (!replaced) {
+                    print replacement
+                    replaced = 1
+                }
+                next
+            }
+            { print }
+        ' "${env_file}" >"${tmp_file}"
+    else
+        cat "${env_file}" >"${tmp_file}"
+        echo "${key}=${value}" >>"${tmp_file}"
+    fi
+
+    mv -f "${tmp_file}" "${env_file}"
+}
+
 if [ -n "${SENTRY_TASKWORKER_CONCURRENCY:-}" ]; then
     echo "      - Configure Sentry taskworker concurrency to ${SENTRY_TASKWORKER_CONCURRENCY}"
-    if grep -q '^SENTRY_TASKWORKER_CONCURRENCY=' "${SENTRY_DATA_PATH}/self_hosted/.env.custom"; then
-        sed -i "s|^SENTRY_TASKWORKER_CONCURRENCY=.*|SENTRY_TASKWORKER_CONCURRENCY=${SENTRY_TASKWORKER_CONCURRENCY}|" "${SENTRY_DATA_PATH}/self_hosted/.env.custom"
-    else
-        echo "SENTRY_TASKWORKER_CONCURRENCY=${SENTRY_TASKWORKER_CONCURRENCY}" >>"${SENTRY_DATA_PATH}/self_hosted/.env.custom"
-    fi
+    set_env_custom_value "SENTRY_TASKWORKER_CONCURRENCY" "${SENTRY_TASKWORKER_CONCURRENCY}"
+fi
+
+if [ -n "${LAUNCHPAD_TASKWORKER_CONCURRENCY:-}" ]; then
+    echo "      - Configure Launchpad taskworker concurrency to ${LAUNCHPAD_TASKWORKER_CONCURRENCY}"
+    set_env_custom_value "LAUNCHPAD_TASKWORKER_CONCURRENCY" "${LAUNCHPAD_TASKWORKER_CONCURRENCY}"
+fi
+
+if [ -n "${LAUNCHPAD_RPC_SHARED_SECRET:-}" ]; then
+    echo "      - Configure Launchpad RPC shared secret override"
+    set_env_custom_value "LAUNCHPAD_RPC_SHARED_SECRET" "${LAUNCHPAD_RPC_SHARED_SECRET}"
+fi
+
+if [ -n "${SENTRY_KAFKA_MAX_POLL_INTERVAL_MS:-}" ]; then
+    echo "      - Configure Kafka max poll interval to ${SENTRY_KAFKA_MAX_POLL_INTERVAL_MS} ms"
+    set_env_custom_value "SENTRY_KAFKA_MAX_POLL_INTERVAL_MS" "${SENTRY_KAFKA_MAX_POLL_INTERVAL_MS}"
 fi
 ########### END .env ###########
 
@@ -191,6 +233,7 @@ if [ "${SENTRY_CUSTOM_MAIL_SERVER_CONFIG:-}" = "true" ]; then
 else
     echo "      - Keeping Sentry mail default config"
     echo "      - Configure Sentry mail host to ${SENTRY_MAIL_HOST:?}"
+    echo "      - Email delivery remains strongly recommended on 26.6.0+ because user email verification is enforced upstream."
     sed -i "s|^# SENTRY_MAIL_HOST=.*|SENTRY_MAIL_HOST=${SENTRY_MAIL_HOST:?}|" "${SENTRY_DATA_PATH}"/self_hosted/.env.custom
     sed -i "s|^SENTRY_MAIL_HOST=.*|SENTRY_MAIL_HOST=${SENTRY_MAIL_HOST:?}|" "${SENTRY_DATA_PATH}"/self_hosted/.env.custom
 fi
