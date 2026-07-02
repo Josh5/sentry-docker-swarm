@@ -71,6 +71,46 @@ if [ -n "${SENTRY_KAFKA_MAX_POLL_INTERVAL_MS:-}" ]; then
     echo "      - Configure Kafka max poll interval to ${SENTRY_KAFKA_MAX_POLL_INTERVAL_MS} ms"
     set_env_custom_value "SENTRY_KAFKA_MAX_POLL_INTERVAL_MS" "${SENTRY_KAFKA_MAX_POLL_INTERVAL_MS}"
 fi
+
+if [ -n "${KAFKA_LOG_RETENTION_HOURS:-}" ]; then
+    echo "      - Configure Kafka log retention hours to ${KAFKA_LOG_RETENTION_HOURS}"
+    set_env_custom_value "KAFKA_LOG_RETENTION_HOURS" "${KAFKA_LOG_RETENTION_HOURS}"
+fi
+
+if [ -n "${KAFKA_LOG_RETENTION_BYTES:-}" ]; then
+    echo "      - Configure Kafka log retention bytes to ${KAFKA_LOG_RETENTION_BYTES}"
+    set_env_custom_value "KAFKA_LOG_RETENTION_BYTES" "${KAFKA_LOG_RETENTION_BYTES}"
+fi
+
+if [ -n "${KAFKA_LOG_SEGMENT_BYTES:-}" ]; then
+    echo "      - Configure Kafka log segment bytes to ${KAFKA_LOG_SEGMENT_BYTES}"
+    set_env_custom_value "KAFKA_LOG_SEGMENT_BYTES" "${KAFKA_LOG_SEGMENT_BYTES}"
+fi
+
+if [ -n "${KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS:-}" ]; then
+    echo "      - Configure Kafka retention check interval to ${KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS} ms"
+    set_env_custom_value "KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS" "${KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS}"
+fi
+
+if [ -n "${KAFKA_LOG_SEGMENT_DELETE_DELAY_MS:-}" ]; then
+    echo "      - Configure Kafka segment delete delay to ${KAFKA_LOG_SEGMENT_DELETE_DELAY_MS} ms"
+    set_env_custom_value "KAFKA_LOG_SEGMENT_DELETE_DELAY_MS" "${KAFKA_LOG_SEGMENT_DELETE_DELAY_MS}"
+fi
+
+if [ -n "${KAFKA_LOG_CLEANER_ENABLE:-}" ]; then
+    echo "      - Configure Kafka log cleaner enable to ${KAFKA_LOG_CLEANER_ENABLE}"
+    set_env_custom_value "KAFKA_LOG_CLEANER_ENABLE" "${KAFKA_LOG_CLEANER_ENABLE}"
+fi
+
+if [ -n "${KAFKA_LOG_CLEANUP_POLICY:-}" ]; then
+    echo "      - Configure Kafka cleanup policy to ${KAFKA_LOG_CLEANUP_POLICY}"
+    set_env_custom_value "KAFKA_LOG_CLEANUP_POLICY" "${KAFKA_LOG_CLEANUP_POLICY}"
+fi
+
+if [ -n "${SENTRY_LOG_FORMAT:-}" ]; then
+    echo "      - Configure Sentry log format to ${SENTRY_LOG_FORMAT}"
+    set_env_custom_value "SENTRY_LOG_FORMAT" "${SENTRY_LOG_FORMAT}"
+fi
 ########### END .env ###########
 
 ########### START sentry.conf.py ###########
