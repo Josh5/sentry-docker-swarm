@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -e
+
+sentry_self_hosted_path="${SENTRY_DATA_PATH:-/mnt/swarm-data/appdata/sentry}/self_hosted"
+dind_container_name="${dind_continer_name:-sentry-swarm-dind}"
+
+exec_args=("-i")
+if [ -t 0 ] && [ -t 1 ]; then
+    exec_args+=("-t")
+fi
+
+exec docker exec "${exec_args[@]}" --user root --workdir="${sentry_self_hosted_path:?}" "${dind_container_name:?}" \
+    docker compose -f ./docker-compose.yml -f ./docker-compose.custom.yml --env-file .env.custom "$@"

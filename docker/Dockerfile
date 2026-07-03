@@ -1,7 +1,6 @@
 # Releases:
 #   https://hub.docker.com/_/docker/tags
 ARG DOCKER_VERSION=28
-FROM docker.io/josh5/sentry-ingest-filter:latest AS ingest-filter-bin
 FROM docker:${DOCKER_VERSION}
 
 LABEL maintainer="Josh.5 <jsunnex@gmail.com>"
@@ -25,8 +24,6 @@ RUN \
         && chmod +x "/usr/bin/yq" \
     && \
     echo
-
-COPY --from=ingest-filter-bin /usr/bin/sentry-ingest-filter /usr/bin/sentry-ingest-filter
 
 COPY overlay/ /
 

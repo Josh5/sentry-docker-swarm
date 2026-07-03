@@ -11,7 +11,7 @@ Before adding the stack, create a custom overlay network called `sentry-private`
 
 In the environment, add a new stack following these steps:
 
-1. Name the stack according the the docker-compose YAML file name in this repo.
+1. Name the stack according the docker-compose YAML file name in this repo.
 1. Configure the stack to pull from a git repository.
 1. Enter in the details for this repo.
    - Repository URL: `<url>`
