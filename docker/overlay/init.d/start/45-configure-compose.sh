@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:19:15 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 15th December 2025 8:00:07 pm
+# Last Modified: Friday, 3rd July 2026 12:51:18 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -201,6 +201,78 @@ EOF
     echo "services/fluentd/24224" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
 else
     echo "    - Manager not configured to run a fluentd logging service. Not adding fluentd container to stack."
+fi
+
+# Configure ingest-filter service
+echo "  - Configure sentry-ingest-filter proxy service"
+if [ "${SENTRY_INGEST_FILTER_ENABLED:-false}" = "true" ]; then
+    echo "    - Adding custom sentry-ingest-filter container to services."
+    cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
+
+  sentry-ingest-filter:
+    image: docker.io/josh5/sentry-ingest-filter:latest
+    mem_limit: 512M
+    environment:
+      - LISTEN_ADDR=:8081
+      - RELAY_UPSTREAM_URL=http://relay:3000
+      - FILTER_MODE=${SENTRY_INGEST_FILTER_MODE:-observe}
+      - WINDOW_MINUTES=${SENTRY_INGEST_FILTER_WINDOW_MINUTES:-1440}
+      - MAX_EVENTS_PER_SIGNATURE=${SENTRY_INGEST_FILTER_MAX_EVENTS_PER_SIGNATURE:-5000}
+      - SAMPLE_RATE_AFTER_LIMIT=${SENTRY_INGEST_FILTER_SAMPLE_RATE_AFTER_LIMIT:-0.01}
+      - INCLUDE_ENVIRONMENT=${SENTRY_INGEST_FILTER_INCLUDE_ENVIRONMENT:-true}
+      - INCLUDE_RELEASE=${SENTRY_INGEST_FILTER_INCLUDE_RELEASE:-false}
+      - TRIM_MAX_BREADCRUMBS=${SENTRY_INGEST_FILTER_TRIM_MAX_BREADCRUMBS:-5}
+      - SNAPSHOT_PATH=/data/sentry-ingest-filter-snapshot.json
+      - SNAPSHOT_INTERVAL=${SENTRY_INGEST_FILTER_SNAPSHOT_INTERVAL:-1m}
+      - METRIC_LOG_INTERVAL=${SENTRY_INGEST_FILTER_METRIC_LOG_INTERVAL:-1m}
+      - BUFFER_ENABLED=${SENTRY_INGEST_FILTER_BUFFER_ENABLED:-false}
+      - BUFFER_DIR=/data/sentry-ingest-filter-buffer
+      - BUFFER_MAX_BYTES=${SENTRY_INGEST_FILTER_BUFFER_MAX_BYTES:-1073741824}
+      - RETRY_INITIAL_BACKOFF=${SENTRY_INGEST_FILTER_RETRY_INITIAL_BACKOFF:-5s}
+      - RETRY_MAX_BACKOFF=${SENTRY_INGEST_FILTER_RETRY_MAX_BACKOFF:-2m}
+      - RETRY_SWEEP_INTERVAL=${SENTRY_INGEST_FILTER_RETRY_SWEEP_INTERVAL:-5s}
+      - LOG_DECISIONS=${SENTRY_INGEST_FILTER_LOG_DECISIONS:-false}
+      - DEBUG=${SENTRY_INGEST_FILTER_DEBUG:-false}
+    volumes:
+      - ${SENTRY_DATA_PATH}/sentry-ingest-filter:/data
+    ports:
+      - "8081:8081"
+
+EOF
+    echo "services/sentry-ingest-filter/8081" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
+else
+    echo "    - Manager not configured to run a sentry-ingest-filter proxy service. Not adding sentry-ingest-filter container to stack."
+fi
+
+# Patch Sentry nginx.conf file
+echo "  - Configure sentry-ingest-filter routing in Sentry nginx.conf"
+if [ -f "${SENTRY_DATA_PATH}/self_hosted/nginx.conf" ]; then
+    nginx_conf_file="${SENTRY_DATA_PATH}/self_hosted/nginx.conf"
+elif [ -f "${SENTRY_DATA_PATH}/self_hosted/nginx/nginx.conf" ]; then
+    nginx_conf_file="${SENTRY_DATA_PATH}/self_hosted/nginx/nginx.conf"
+else
+    nginx_conf_file=""
+fi
+
+if [ -n "${nginx_conf_file}" ]; then
+    echo "    - Found Sentry nginx.conf at: ${nginx_conf_file}"
+    if [ ! -f "${nginx_conf_file}.bak" ]; then
+        echo "    - Creating backup of original nginx.conf"
+        cp -f "${nginx_conf_file}" "${nginx_conf_file}.bak"
+    fi
+    # Restore clean state from backup
+    cp -f "${nginx_conf_file}.bak" "${nginx_conf_file}"
+
+    if [ "${SENTRY_INGEST_FILTER_ENABLED:-false}" = "true" ]; then
+        echo "    - Patching nginx.conf for sentry-ingest-filter routing..."
+        sed -i "s|upstream relay {|upstream ingest-filter {\n\t\tserver sentry-ingest-filter:8081;\n\t\tkeepalive 2;\n\t}\n\n\tupstream relay {|" "${nginx_conf_file}"
+        sed -i '/location \/api\/store\/ {/,/}/ s|http://relay|http://ingest-filter|' "${nginx_conf_file}"
+        sed -i "s|location ~ \^/api/\[1-9\]|location ~ ^/api/[1-9]\\\\d*/(store\|envelope)/ {\n\t\t\tproxy_pass http://ingest-filter;\n\t\t}\n\n\t\tlocation ~ ^/api/[1-9]|" "${nginx_conf_file}"
+    else
+        echo "    - Ingest filter disabled. Routing all relay traffic directly to relay container."
+    fi
+else
+    echo "    - Warning: Sentry nginx.conf file not found, skipping routing patch."
 fi
 
 # Set the docker compose command
