@@ -240,6 +240,25 @@ if [ "${SENTRY_INGEST_FILTER_ENABLED:-false}" = "true" ]; then
 
 EOF
     echo "services/sentry-ingest-filter/8081" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
+
+    # Track non-structural env variables in a separate file to avoid full stack tear-downs
+    echo "" >"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
+    echo "MODE=${SENTRY_INGEST_FILTER_MODE:-observe}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
+    echo "WINDOW_MINUTES=${SENTRY_INGEST_FILTER_WINDOW_MINUTES:-1440}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
+    echo "MAX_EVENTS_PER_SIGNATURE=${SENTRY_INGEST_FILTER_MAX_EVENTS_PER_SIGNATURE:-5000}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
+    echo "SAMPLE_RATE_AFTER_LIMIT=${SENTRY_INGEST_FILTER_SAMPLE_RATE_AFTER_LIMIT:-0.01}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
+    echo "INCLUDE_ENVIRONMENT=${SENTRY_INGEST_FILTER_INCLUDE_ENVIRONMENT:-true}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
+    echo "INCLUDE_RELEASE=${SENTRY_INGEST_FILTER_INCLUDE_RELEASE:-false}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
+    echo "TRIM_MAX_BREADCRUMBS=${SENTRY_INGEST_FILTER_TRIM_MAX_BREADCRUMBS:-5}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
+    echo "SNAPSHOT_INTERVAL=${SENTRY_INGEST_FILTER_SNAPSHOT_INTERVAL:-1m}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
+    echo "METRIC_LOG_INTERVAL=${SENTRY_INGEST_FILTER_METRIC_LOG_INTERVAL:-1m}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
+    echo "BUFFER_ENABLED=${SENTRY_INGEST_FILTER_BUFFER_ENABLED:-false}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
+    echo "BUFFER_MAX_BYTES=${SENTRY_INGEST_FILTER_BUFFER_MAX_BYTES:-1073741824}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
+    echo "RETRY_INITIAL_BACKOFF=${SENTRY_INGEST_FILTER_RETRY_INITIAL_BACKOFF:-5s}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
+    echo "RETRY_MAX_BACKOFF=${SENTRY_INGEST_FILTER_RETRY_MAX_BACKOFF:-2m}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
+    echo "RETRY_SWEEP_INTERVAL=${SENTRY_INGEST_FILTER_RETRY_SWEEP_INTERVAL:-5s}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
+    echo "LOG_DECISIONS=${SENTRY_INGEST_FILTER_LOG_DECISIONS:-false}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
+    echo "DEBUG=${SENTRY_INGEST_FILTER_DEBUG:-false}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
 else
     echo "    - Manager not configured to run a sentry-ingest-filter proxy service. Not adding sentry-ingest-filter container to stack."
 fi
@@ -300,10 +319,34 @@ fi
 
 ########### END docker-compose.yml PATCHES ###########
 
+config_changed="false"
+
+if [ ! -f "${SENTRY_DATA_PATH}/self_hosted/.z-installed-sentry-version.txt" ]; then
+    config_changed="true"
+fi
+
 if ! cmp -s "${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt" "${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.txt"; then
     echo "  - A breaking change was made to the docker compose stack. Stopping it before continuing to avoid issues while applying updates."
     ${docker_compose_cmd:?} down --remove-orphans
     mv -fv "${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt" "${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.txt"
+    config_changed="true"
 else
     echo "  - Sentry enhance-image.sh config file has not changed"
+fi
+
+# Check if only the ingest-filter environment variables changed (non-breaking update)
+if [ "${SENTRY_INGEST_FILTER_ENABLED:-false}" = "true" ]; then
+    if [ ! -f "${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.txt" ]; then
+        mv -fv "${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt" "${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.txt"
+        config_changed="true"
+    elif ! cmp -s "${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt" "${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.txt"; then
+        echo "  - Ingest filter configuration has been modified."
+        mv -fv "${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt" "${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.txt"
+        config_changed="true"
+    fi
+fi
+
+if [ "${SENTRY_INGEST_FILTER_ENABLED:-false}" = "true" ] && [ "${config_changed}" = "true" ]; then
+    echo "  - Sentry configuration or ingest filter configuration has changed. Pulling latest sentry-ingest-filter image..."
+    ${docker_cmd:?} pull docker.io/josh5/sentry-ingest-filter:latest || true
 fi
