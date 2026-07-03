@@ -306,7 +306,7 @@ For further details, troubleshooting, refer to these resources:
 - Default: `false`
 - Description: Enable the Sentry ingest proxy and flood control filter layer.
 
-`SENTRY_INGEST_FILTER_MODE` (optional)
+`SENTRY_INGEST_FILTER_MODE_EVENT` (optional)
 
 - Default: `observe`
 - Accepted Values:
@@ -314,17 +314,58 @@ For further details, troubleshooting, refer to these resources:
   - `sample` => Rate limit matching signatures and apply a post-limit sample rate.
   - `trim` => Trim heavy fields (like breadcrumbs) for rate-limited event signatures.
   - `drop` => Silently drop events exceeding limits.
-- Description: Ingest filter mode.
+  - `disable` => Bypasses filtering entirely for this type.
+- Description: Ingest filter mode for event items.
+
+`SENTRY_INGEST_FILTER_MODE_TRANSACTION` (optional)
+
+- Default: `observe`
+- Description: Ingest filter mode for transaction items.
+
+`SENTRY_INGEST_FILTER_MODE_PROFILE` (optional)
+
+- Default: `observe`
+- Description: Ingest filter mode for profile items.
+
+`SENTRY_INGEST_FILTER_MODE_CHECKIN` (optional)
+
+- Default: `observe`
+- Description: Ingest filter mode for check-in items.
+
+`SENTRY_INGEST_FILTER_MODE_LOG` (optional)
+
+- Default: `observe`
+- Description: Ingest filter mode for log items.
 
 `SENTRY_INGEST_FILTER_WINDOW_MINUTES` (optional)
 
 - Default: `1440` (24 hours)
 - Description: Time window in minutes to evaluate rate limits.
 
-`SENTRY_INGEST_FILTER_MAX_EVENTS_PER_SIGNATURE` (optional)
+`SENTRY_INGEST_FILTER_MAX_ITEMS_PER_SIGNATURE_EVENT` (optional)
 
 - Default: `5000`
-- Description: Max event count threshold per signature inside the window before rate limiting/sampling applies.
+- Description: Max count threshold per signature inside the window before rate limiting/sampling applies to event items.
+
+`SENTRY_INGEST_FILTER_MAX_ITEMS_PER_SIGNATURE_TRANSACTION` (optional)
+
+- Default: `5000`
+- Description: Max count threshold per signature inside the window before rate limiting/sampling applies to transaction items.
+
+`SENTRY_INGEST_FILTER_MAX_ITEMS_PER_SIGNATURE_PROFILE` (optional)
+
+- Default: `5000`
+- Description: Max count threshold per signature inside the window before rate limiting/sampling applies to profile items.
+
+`SENTRY_INGEST_FILTER_MAX_ITEMS_PER_SIGNATURE_CHECKIN` (optional)
+
+- Default: `5000`
+- Description: Max count threshold per signature inside the window before rate limiting/sampling applies to check-in items.
+
+`SENTRY_INGEST_FILTER_MAX_ITEMS_PER_SIGNATURE_LOG` (optional)
+
+- Default: `5000`
+- Description: Max count threshold per signature inside the window before rate limiting/sampling applies to log items.
 
 `SENTRY_INGEST_FILTER_SAMPLE_RATE_AFTER_LIMIT` (optional)
 
