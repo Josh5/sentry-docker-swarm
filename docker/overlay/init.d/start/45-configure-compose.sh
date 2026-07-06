@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:19:15 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Friday, 3rd July 2026 12:51:18 pm
+# Last Modified: Monday, 6th July 2026 2:49:49 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -212,6 +212,10 @@ if [ "${SENTRY_INGEST_FILTER_ENABLED:-false}" = "true" ]; then
   sentry-ingest-filter:
     image: docker.io/josh5/sentry-ingest-filter:latest
     mem_limit: 512M
+    labels:
+      - "source.service=sentry-ingest-filter"
+      - "source.version=Sentry-v${SENTRY_VERSION:?}"
+    <<: *logging-base
     environment:
       - LISTEN_ADDR=:8081
       - RELAY_UPSTREAM_URL=http://relay:3000
