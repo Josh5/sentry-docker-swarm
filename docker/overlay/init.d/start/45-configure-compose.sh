@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:19:15 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 6th July 2026 2:49:49 pm
+# Last Modified: Monday, 6th July 2026 3:10:46 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -187,8 +187,13 @@ if [ "${CUSTOM_LOG_DRIVER:-}" = "fluentd" ]; then
   fluentd:
     image: fluent/fluentd:${fluentd_image_tag:?}
     mem_limit: 256M
+     # Note:
+     #  Since v1.19, the fluentd containers will always be run as 999 by default.
+     #  This just makes it clear and explicit.
+    user: "999:999"
     environment:
       FLUENTD_TAG: ${FLUENTD_TAG:-sentry}
+      FLUENTD_GEMFILE: /fluentd/etc/Gemfile
     volumes:
       - ${fluentd_data_path:?}/log:/fluentd/log
       - ${fluentd_data_path:?}/etc:/fluentd/etc
