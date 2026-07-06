@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 10:19:15 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 6th July 2026 3:10:46 pm
+# Last Modified: Tuesday, 7th July 2026 10:28:50 am
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -187,13 +187,27 @@ if [ "${CUSTOM_LOG_DRIVER:-}" = "fluentd" ]; then
   fluentd:
     image: fluent/fluentd:${fluentd_image_tag:?}
     mem_limit: 256M
-     # Note:
-     #  Since v1.19, the fluentd containers will always be run as 999 by default.
-     #  This just makes it clear and explicit.
+    # Note:
+    #  Since v1.19, the fluentd containers will always be run as 999 by default.
+    #  This just makes it clear and explicit.
     user: "999:999"
+    entrypoint:
+      - tini
+      - --
+      - /bin/sh
+      - -c
+      - |
+        fluent-gem install fluent-plugin-parser-logfmt --no-document
+        exec /bin/entrypoint.sh fluentd
     environment:
+      # FLUENTD_TAG: Defines the default tagging scheme for Fluentd log matching.
       FLUENTD_TAG: ${FLUENTD_TAG:-sentry}
-      FLUENTD_GEMFILE: /fluentd/etc/Gemfile
+      # GEM_HOME: Redirects gem installations to the persistent volume mount so plugins aren't redownloaded on every container restart.
+      GEM_HOME: /fluentd/storage/bundle
+      # GEM_PATH: Tells Ruby where to look for gems, appending the custom storage path alongside the pre-installed system paths.
+      GEM_PATH: /fluentd/storage/bundle:/usr/local/bundle:/usr/local/lib/ruby/gems/3.4.0
+      # HOME: Redirects RubyGems user-level configs/caches away from the non-existent /home/fluent directory to the globally writable /tmp.
+      HOME: /tmp
     volumes:
       - ${fluentd_data_path:?}/log:/fluentd/log
       - ${fluentd_data_path:?}/etc:/fluentd/etc

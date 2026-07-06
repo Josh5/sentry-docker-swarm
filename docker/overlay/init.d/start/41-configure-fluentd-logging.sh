@@ -5,7 +5,7 @@
 # File Created: Monday, 21st October 2024 9:46:22 pm
 # Author: Josh5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Wednesday, 11th June 2025 3:59:34 pm
+# Last Modified: Tuesday, 7th July 2026 10:29:23 am
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -17,12 +17,6 @@ if [ "${CUSTOM_LOG_DRIVER:-}" = "fluentd" ]; then
         ${fluentd_data_path:?}/log \
         ${fluentd_data_path:?}/etc \
         ${fluentd_data_path:?}/storage
-
-    echo "  - Installing fluentd Gemfile"
-    cat <<EOF >"${fluentd_data_path:?}/etc/Gemfile"
-source "https://rubygems.org"
-gem "fluent-plugin-parser-logfmt"
-EOF
 
     echo "  - Installing fluentd config"
     cp -fv /defaults/fluentd/fluent.template.conf ${fluentd_data_path:?}/etc/fluent.conf
@@ -189,7 +183,7 @@ EOF
     echo "  - Writing fluentd container config to env file"
     echo "" >${fluentd_data_path:?}/new-fluentd-docker-run-config.env
     echo "fluentd_image_tag=${fluentd_image_tag:?}" >>${fluentd_data_path:?}/new-fluentd-docker-run-config.env
-    echo "fluentd_config_checksum=$(md5sum ${fluentd_data_path:?}/etc/fluent.conf ${fluentd_data_path:?}/etc/Gemfile | md5sum | cut -d' ' -f1)" >>${fluentd_data_path:?}/new-fluentd-docker-run-config.env
+    echo "fluentd_config_checksum=$(md5sum ${fluentd_data_path:?}/etc/fluent.conf | cut -d' ' -f1)" >>${fluentd_data_path:?}/new-fluentd-docker-run-config.env
 
     # TODO: -- Remove all docker_cmd lines below this line --
     echo "  - Checking if config has changed since last run"
