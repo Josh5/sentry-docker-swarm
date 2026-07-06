@@ -80,7 +80,7 @@ x-logging-base: &logging-base
     driver: fluentd
     options:
       fluentd-address: "localhost:24224"
-      tag: "sentry"
+      tag: "sentry.{{.Name}}"
       fluentd-request-ack: "true"
       fluentd-async: "true"
       fluentd-async-reconnect-interval: "5s"
@@ -88,7 +88,7 @@ x-logging-base: &logging-base
       labels: "source.service,source.version"
 
 EOF
-    echo "x-logging-base/logging/driver/fluentd/fluentd-address/localhost:24224/tag/sentry" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
+    echo "x-logging-base/logging/driver/fluentd/fluentd-address/localhost:24224/tag/sentry.{{.Name}}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
 else
     echo "    - Configure Docker Compose to use local log driver for all services."
     cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
