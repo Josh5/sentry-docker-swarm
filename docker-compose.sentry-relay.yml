@@ -1,0 +1,120 @@
+# ---------------
+# Sentry Relay
+#
+#   Deploys a public-facing Relay that forwards ingest traffic to an internal
+#   Sentry web endpoint. This stack does not run Kafka, ClickHouse, Snuba, or
+#   any other core Sentry services.
+#
+# ---------------
+# Config (paste into portainer advance env text input):
+#
+# <config_start>
+#   #@ Placement
+#   PLACEMENT_CONSTRAINT=node.hostname==<hostname>
+#   #@ Container Config
+#   #-  - SENTRY_RELAY_DATA_PATH -
+#   #     Persistent storage path for generated Relay config and credentials.
+#   SENTRY_RELAY_DATA_PATH=/mnt/user/appdata/sentry-relay
+#   #@ Relay Config
+#   #-  - RELAY_IMAGE -
+#   RELAY_IMAGE=ghcr.io/getsentry/relay:26.6.0
+#   #-  - RELAY_UPSTREAM_URL -
+#   #     Internal Sentry web URL reachable from this Relay.
+#   RELAY_UPSTREAM_URL=http://10.0.0.50:9000/
+#   #-  - RELAY_ID -
+#   #     Relay credentials identity UUID.
+#   RELAY_ID=00000000-0000-0000-0000-000000000000
+#   #-  - RELAY_PUBLIC_KEY -
+#   RELAY_PUBLIC_KEY=
+#   #-  - RELAY_SECRET_KEY -
+#   RELAY_SECRET_KEY=
+#   #-  - RELAY_LOG_LEVEL -
+#   RELAY_LOG_LEVEL=WARN
+#   #-  - RELAY_STATSD_ADDR -
+#   RELAY_STATSD_ADDR=
+#   #-  - RELAY_PUBLISHED_PORT -
+#   RELAY_PUBLISHED_PORT=3000
+#   #-  - RELAY_MAX_MEMORY_PERCENT -
+#   #     Optional workaround for Relay healthcheck issues on some hosts.
+#   RELAY_MAX_MEMORY_PERCENT=0.95
+#   #-  - RELAY_SPOOL_MAX_BACKPRESSURE_MEMORY_PERCENT -
+#   RELAY_SPOOL_MAX_BACKPRESSURE_MEMORY_PERCENT=0.95
+# <config_end>
+#
+# ---------------
+# Setup Script
+#
+# <script_start>
+#   > mkdir -p ${SENTRY_RELAY_DATA_PATH:?}
+#   > chmod 755 ${SENTRY_RELAY_DATA_PATH:?}
+# <script_end>
+#
+# ---------------
+---
+services:
+  relay:
+    image: ${RELAY_IMAGE:-ghcr.io/getsentry/relay:26.6.0}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 10s
+      placement:
+        constraints:
+          - ${PLACEMENT_CONSTRAINT}
+    environment:
+      RELAY_UPSTREAM_URL: ${RELAY_UPSTREAM_URL:?}
+      RELAY_ID: ${RELAY_ID:?}
+      RELAY_PUBLIC_KEY: ${RELAY_PUBLIC_KEY:?}
+      RELAY_SECRET_KEY: ${RELAY_SECRET_KEY:?}
+      RELAY_LOG_LEVEL: ${RELAY_LOG_LEVEL:-WARN}
+      RELAY_STATSD_ADDR: ${RELAY_STATSD_ADDR:-}
+      RELAY_MAX_MEMORY_PERCENT: ${RELAY_MAX_MEMORY_PERCENT:-0.95}
+      RELAY_SPOOL_MAX_BACKPRESSURE_MEMORY_PERCENT: ${RELAY_SPOOL_MAX_BACKPRESSURE_MEMORY_PERCENT:-0.95}
+    volumes:
+      - type: bind
+        source: ${SENTRY_RELAY_DATA_PATH}
+        target: /work/.relay
+    ports:
+      - target: 3000
+        published: ${RELAY_PUBLISHED_PORT:-3000}
+        mode: host
+    entrypoint: /bin/sh
+    command: |
+      -ec '
+      mkdir -p /work/.relay
+
+      cat >/work/.relay/config.yml <<EOF
+      relay:
+        upstream: "${RELAY_UPSTREAM_URL}"
+        host: 0.0.0.0
+        port: 3000
+      logging:
+        level: ${RELAY_LOG_LEVEL}
+      health:
+        max_memory_percent: ${RELAY_MAX_MEMORY_PERCENT}
+      spool:
+        envelopes:
+          path: "/work/.relay/spool"
+          max_backpressure_memory_percent: ${RELAY_SPOOL_MAX_BACKPRESSURE_MEMORY_PERCENT}
+      metrics:
+        statsd: "${RELAY_STATSD_ADDR}"
+        prefix: "sentry.relay"
+      EOF
+
+      cat >/work/.relay/credentials.json <<EOF
+      {
+        "id": "${RELAY_ID}",
+        "public_key": "${RELAY_PUBLIC_KEY}",
+        "secret_key": "${RELAY_SECRET_KEY}"
+      }
+      EOF
+
+      exec /bin/relay run
+      '
+    healthcheck:
+      test: ['CMD', '/bin/relay', 'healthcheck']
+      interval: 30s
+      timeout: 30s
+      retries: 10
+      start_period: 30s
