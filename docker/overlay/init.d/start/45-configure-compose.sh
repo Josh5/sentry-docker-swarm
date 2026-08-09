@@ -20,6 +20,15 @@ echo "" >"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
 echo "" >"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
 compose_services="$(${docker_cmd:?} compose -f ./docker-compose.yml config --services)"
 
+# Sentry 26.x Rust consumers expect the options values directory to exist.
+mkdir -p "${SENTRY_DATA_PATH}/self_hosted/sentry-options/values"
+chmod 755 "${SENTRY_DATA_PATH}/self_hosted/sentry-options" "${SENTRY_DATA_PATH}/self_hosted/sentry-options/values"
+
+# Install the vmagent entrypoint beside the generated Compose configuration.
+cp -f /defaults/vmagent/entrypoint.sh "${SENTRY_DATA_PATH}/self_hosted/vmagent.entrypoint.sh"
+chmod 755 "${SENTRY_DATA_PATH}/self_hosted/vmagent.entrypoint.sh"
+vmagent_entrypoint_sha256=$(sha256sum "${SENTRY_DATA_PATH}/self_hosted/vmagent.entrypoint.sh" | awk '{print $1}')
+
 # Create custom network
 echo "  - Ensure custom sentry network '${custom_docker_network_name:?}' exists."
 existing_sentry_stack_network=$(${docker_cmd:?} network ls 2>/dev/null | grep "${custom_docker_network_name:?}" || echo "")
@@ -176,6 +185,14 @@ EOF
     else
         echo "      - *backend-services-cpu-limits" >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
     fi
+    case "${service:?}" in
+    snuba-*)
+        cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
+    volumes:
+      - ${SENTRY_DATA_PATH}/self_hosted/sentry-options:/etc/sentry-options:ro
+EOF
+        ;;
+    esac
 done
 
 # Configure logging service
@@ -300,6 +317,57 @@ EOF
     echo "DEBUG=${SENTRY_INGEST_FILTER_DEBUG:-false}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-ingest-filter-config.tmp.txt"
 else
     echo "    - Manager not configured to run a sentry-ingest-filter proxy service. Not adding sentry-ingest-filter container to stack."
+fi
+
+# Configure nested DinD metrics forwarding.
+echo "  - Configure nested container metrics forwarding"
+if [ "${SENTRY_METRICS_FORWARD_ENABLED:-false}" = "true" ]; then
+    if [ -z "${SENTRY_METRICS_FORWARD_REMOTE_WRITE_URL:-}" ]; then
+        echo "    - SENTRY_METRICS_FORWARD_REMOTE_WRITE_URL is required when metrics forwarding is enabled." >&2
+        exit 1
+    fi
+
+    echo "    - Adding cAdvisor and vmagent services."
+    cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
+
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.60.3
+    restart: unless-stopped
+    command:
+      - -logtostderr
+      - -docker_only
+      - -housekeeping_interval=15s
+      - -max_housekeeping_interval=60s
+      - -allow_dynamic_housekeeping=true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev:/dev:ro
+
+  vmagent:
+    image: victoriametrics/vmagent:v1.146.0
+    restart: unless-stopped
+    depends_on:
+      - cadvisor
+    <<: *env-import
+    environment:
+      VMAGENT_ENTRYPOINT_SHA256: ${vmagent_entrypoint_sha256:?}
+    entrypoint:
+      - /bin/sh
+      - /opt/vmagent/entrypoint.sh
+    volumes:
+      - vmagent-remotewrite-data:/vmagent-remotewrite-data
+      - ${SENTRY_DATA_PATH}/self_hosted/vmagent.entrypoint.sh:/opt/vmagent/entrypoint.sh:ro
+
+volumes:
+  vmagent-remotewrite-data:
+EOF
+    echo "services/cadvisor/v0.60.3" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
+    echo "services/vmagent/v1.146.0" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
+else
+    echo "    - Metrics forwarding is disabled. Not adding cAdvisor or vmagent."
 fi
 
 # Patch Sentry nginx.conf file

@@ -126,12 +126,15 @@
 #   #-  - ENABLE_LOG_MONITOR -
 #   #     Enable a monitor loop that will watch the stack logs for common error logs.
 #   ENABLE_LOG_MONITOR=true
-#   #-  - EXIT_ON_ERRORS_IN_LOGS -
-#   #     Exit the monitor service if any of the common error logs are seen in the stack logs. Requires ENABLE_LOG_MONITOR=true.
-#   EXIT_ON_ERRORS_IN_LOGS=false
-#   #-  - NOTIFY_DISCORD_FOR_ERRORS_IN_LOGS -
-#   #     Post a message to a Discord webhook if any common error logs are seen in the stack logs. Leave empty to disable.
-#   NOTIFY_DISCORD_FOR_ERRORS_IN_LOGS=
+#   #-  - NOTIFY_WEBHOOK_URLS -
+#   #     Optional comma- or whitespace-separated webhook destinations for manager warning and error notifications.
+#   #     Discord, Google Chat, and Slack URLs are detected automatically. Prefix ambiguous or custom URLs with
+#   #     discord=, google-chat=, slack=, or generic= to select the request format explicitly.
+#   NOTIFY_WEBHOOK_URLS=
+#   #-  - PAGERDUTY_INTEGRATION_KEY -
+#   #     Optional PagerDuty Events API v2 integration/routing key. When set, manager error notifications trigger
+#   #     incidents and subsequent recovery notifications resolve them. Warning notifications do not reach PagerDuty.
+#   PAGERDUTY_INTEGRATION_KEY=
 #   #-  - DIND_CPU_SHARES -
 #   #     Sets a CPU shares limit on the Sentry DIND container. Nested services will not be able to exceed this value.
 #   #     Set this to 1024 to apply system defaults. If left empty, a shares value of 512 will be applied.
@@ -255,6 +258,21 @@
 #   #-  - SENTRY_INGEST_FILTER_DEBUG -
 #   #     Enable debug verbose logging.
 #   SENTRY_INGEST_FILTER_DEBUG=false
+#   #-  - SENTRY_METRICS_FORWARD_ENABLED -
+#   #     Enable nested cAdvisor collection and vmagent remote_write forwarding.
+#   SENTRY_METRICS_FORWARD_ENABLED=false
+#   #-  - SENTRY_METRICS_FORWARD_REMOTE_WRITE_URL -
+#   #     Prometheus remote_write endpoint used by vmagent. Required when metrics forwarding is enabled.
+#   SENTRY_METRICS_FORWARD_REMOTE_WRITE_URL=
+#   #-  - SENTRY_METRICS_FORWARD_REMOTE_WRITE_BASIC_AUTH_USER -
+#   #     Optional basic-auth username for the remote_write endpoint. Configure it together with the password.
+#   SENTRY_METRICS_FORWARD_REMOTE_WRITE_BASIC_AUTH_USER=
+#   #-  - SENTRY_METRICS_FORWARD_REMOTE_WRITE_BASIC_AUTH_PASS -
+#   #     Optional basic-auth password for the remote_write endpoint. Configure it together with the username.
+#   SENTRY_METRICS_FORWARD_REMOTE_WRITE_BASIC_AUTH_PASS=
+#   #-  - NODE_CLUSTER -
+#   #     Stable cluster label applied to forwarded metrics.
+#   NODE_CLUSTER=default
 # <config_end>
 #
 # ---------------
@@ -290,6 +308,9 @@ services:
           - ${PLACEMENT_CONSTRAINT}
     environment:
       NETWORK_NAME: sentry-private
+      NODE_ID: '{{.Node.ID}}'
+      NODE_NAME: '{{.Node.Hostname}}'
+      NODE_CLUSTER: ${NODE_CLUSTER:-default}
       DOCKER_VERSION: ${DOCKER_VERSION:-}
       # Releases:
       #   https://github.com/getsentry/self-hosted/releases
@@ -351,8 +372,8 @@ services:
       DEPLOYMENT_ID: ${DEPLOYMENT_ID:-default}
       KEEP_ALIVE: ${KEEP_ALIVE:-true}
       ENABLE_LOG_MONITOR: ${ENABLE_LOG_MONITOR:-true}
-      EXIT_ON_ERRORS_IN_LOGS: ${EXIT_ON_ERRORS_IN_LOGS:-false}
-      NOTIFY_DISCORD_FOR_ERRORS_IN_LOGS: ${NOTIFY_DISCORD_FOR_ERRORS_IN_LOGS:-}
+      NOTIFY_WEBHOOK_URLS: ${NOTIFY_WEBHOOK_URLS:-}
+      PAGERDUTY_INTEGRATION_KEY: ${PAGERDUTY_INTEGRATION_KEY:-}
       DIND_CPU_SHARES: ${DIND_CPU_SHARES:-512}
       DIND_CPU_PERCENT: ${DIND_CPU_PERCENT:-75}
       DIND_MEMLIMIT: ${DIND_MEMLIMIT:-0}
@@ -392,6 +413,10 @@ services:
       SENTRY_INGEST_FILTER_RETRY_SWEEP_INTERVAL: ${SENTRY_INGEST_FILTER_RETRY_SWEEP_INTERVAL:-5s}
       SENTRY_INGEST_FILTER_LOG_DECISIONS: ${SENTRY_INGEST_FILTER_LOG_DECISIONS:-false}
       SENTRY_INGEST_FILTER_DEBUG: ${SENTRY_INGEST_FILTER_DEBUG:-false}
+      SENTRY_METRICS_FORWARD_ENABLED: ${SENTRY_METRICS_FORWARD_ENABLED:-false}
+      SENTRY_METRICS_FORWARD_REMOTE_WRITE_URL: ${SENTRY_METRICS_FORWARD_REMOTE_WRITE_URL:-}
+      SENTRY_METRICS_FORWARD_REMOTE_WRITE_BASIC_AUTH_USER: ${SENTRY_METRICS_FORWARD_REMOTE_WRITE_BASIC_AUTH_USER:-}
+      SENTRY_METRICS_FORWARD_REMOTE_WRITE_BASIC_AUTH_PASS: ${SENTRY_METRICS_FORWARD_REMOTE_WRITE_BASIC_AUTH_PASS:-}
     volumes:
       - type: bind
         source: /var/run/docker.sock

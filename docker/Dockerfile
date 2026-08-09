@@ -9,7 +9,6 @@ RUN \
     echo "**** Install entrypoint dependencies ****" \
         && apk add --no-cache \
             bash \
-            gettext \
             wget \
     && \
     echo "**** Install Sentry installation dependencies ****" \

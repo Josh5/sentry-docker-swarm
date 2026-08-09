@@ -111,6 +111,15 @@ if [ -n "${SENTRY_LOG_FORMAT:-}" ]; then
     echo "      - Configure Sentry log format to ${SENTRY_LOG_FORMAT}"
     set_env_custom_value "SENTRY_LOG_FORMAT" "${SENTRY_LOG_FORMAT}"
 fi
+
+# Pass deployment identity and metrics-forwarding configuration to the
+# optional vmagent service in docker-compose.custom.yml.
+set_env_custom_value "NODE_ID" "${NODE_ID:-default}"
+set_env_custom_value "NODE_NAME" "${NODE_NAME:-default}"
+set_env_custom_value "NODE_CLUSTER" "${NODE_CLUSTER:-default}"
+set_env_custom_value "SENTRY_METRICS_FORWARD_REMOTE_WRITE_URL" "${SENTRY_METRICS_FORWARD_REMOTE_WRITE_URL:-}"
+set_env_custom_value "SENTRY_METRICS_FORWARD_REMOTE_WRITE_BASIC_AUTH_USER" "${SENTRY_METRICS_FORWARD_REMOTE_WRITE_BASIC_AUTH_USER:-}"
+set_env_custom_value "SENTRY_METRICS_FORWARD_REMOTE_WRITE_BASIC_AUTH_PASS" "${SENTRY_METRICS_FORWARD_REMOTE_WRITE_BASIC_AUTH_PASS:-}"
 ########### END .env ###########
 
 ########### START sentry.conf.py ###########
