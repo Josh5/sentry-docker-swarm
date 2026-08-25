@@ -52,13 +52,13 @@ class IncidentCoordinatorTests(unittest.TestCase):
         )
 
     def test_health_and_logs_share_one_incident_lifecycle(self) -> None:
-        self.assertEqual(self.coordinator.observe_logs(self.log_error()), [])
+        self.assertEqual(self.coordinator.observe_logs(self.log_error(), now=0), [])
 
         recoveries, notifications = self.coordinator.observe_health(self.unhealthy(), now=0)
         self.assertEqual(len(recoveries), 1)
         self.assertEqual(notifications, [])
 
-        warning = self.coordinator.observe_logs(self.log_error())
+        warning = self.coordinator.observe_logs(self.log_error(), now=60)
         self.assertEqual(len(warning), 1)
         self.assertEqual(warning[0].severity, "warning")
         self.assertEqual(warning[0].event_key, "service-snuba")
@@ -66,32 +66,75 @@ class IncidentCoordinatorTests(unittest.TestCase):
         _, duplicate_warning = self.coordinator.observe_health(self.unhealthy(), now=121)
         self.assertEqual(duplicate_warning, [])
 
-        error = self.coordinator.observe_logs(self.log_error())
+        error = self.coordinator.observe_logs(self.log_error(), now=180)
         self.assertEqual(len(error), 1)
         self.assertEqual(error[0].severity, "error")
         self.assertEqual(error[0].event_key, "service-snuba")
 
     def test_resolution_waits_for_health_and_logs_to_clear(self) -> None:
-        self.coordinator.observe_logs(self.log_error())
-        self.coordinator.observe_logs(self.log_error())
+        self.coordinator.observe_logs(self.log_error(), now=0)
+        self.coordinator.observe_logs(self.log_error(), now=60)
         self.coordinator.observe_health(self.unhealthy(), now=0)
 
-        no_resolution = self.coordinator.observe_logs(SUPERVISOR.LogObservation(service="snuba", matches=()))
+        no_resolution = self.coordinator.observe_logs(
+            SUPERVISOR.LogObservation(service="snuba", matches=()),
+            now=120,
+        )
         self.assertEqual(no_resolution, [])
 
-        _, resolution = self.coordinator.observe_health(self.healthy(), now=121)
+        _, recovery_started = self.coordinator.observe_health(self.healthy(), now=121)
+        self.assertEqual(recovery_started, [])
+
+        _, not_stable_long_enough = self.coordinator.observe_health(self.healthy(), now=720)
+        self.assertEqual(not_stable_long_enough, [])
+
+        _, resolution = self.coordinator.observe_health(self.healthy(), now=721)
         self.assertEqual(len(resolution), 1)
         self.assertEqual(resolution[0].action, "resolve")
         self.assertEqual(resolution[0].event_key, "service-snuba")
+        self.assertIn("10 minutes", resolution[0].message)
+
+    def test_new_issue_resets_recovery_stability_period_without_duplicate_error(self) -> None:
+        self.coordinator.observe_logs(self.log_error(), now=0)
+        self.coordinator.observe_logs(self.log_error(), now=60)
+        error = self.coordinator.observe_logs(self.log_error(), now=120)
+        self.assertEqual(error[0].severity, "error")
+
+        clean = SUPERVISOR.LogObservation(service="snuba", matches=())
+        self.assertEqual(self.coordinator.observe_logs(clean, now=180), [])
+        self.assertEqual(self.coordinator.observe_logs(clean, now=779), [])
+
+        duplicate_error = self.coordinator.observe_logs(self.log_error(), now=780)
+        self.assertEqual(duplicate_error, [])
+
+        self.assertEqual(self.coordinator.observe_logs(clean, now=840), [])
+        self.assertEqual(self.coordinator.observe_logs(clean, now=1439), [])
+        resolution = self.coordinator.observe_logs(clean, now=1440)
+        self.assertEqual(len(resolution), 1)
+        self.assertEqual(resolution[0].action, "resolve")
+
+    def test_unavailable_logs_block_recovery_confirmation(self) -> None:
+        self.coordinator.observe_logs(self.log_error(), now=0)
+        self.coordinator.observe_logs(self.log_error(), now=60)
+        clean = SUPERVISOR.LogObservation(service="snuba", matches=())
+        unavailable = SUPERVISOR.LogObservation(service="snuba", available=False)
+
+        self.assertEqual(self.coordinator.observe_logs(clean, now=120), [])
+        self.assertEqual(self.coordinator.observe_logs(unavailable, now=300), [])
+        self.assertEqual(self.coordinator.observe_logs(clean, now=900), [])
+        resolution = self.coordinator.observe_logs(clean, now=1500)
+
+        self.assertEqual(len(resolution), 1)
+        self.assertEqual(resolution[0].action, "resolve")
 
     def test_different_services_never_share_incident_state(self) -> None:
-        self.coordinator.observe_logs(self.log_error("snuba"))
-        snuba_warning = self.coordinator.observe_logs(self.log_error("snuba"))
+        self.coordinator.observe_logs(self.log_error("snuba"), now=0)
+        snuba_warning = self.coordinator.observe_logs(self.log_error("snuba"), now=60)
         self.assertEqual(len(snuba_warning), 1)
 
-        relay_first = self.coordinator.observe_logs(self.log_error("relay"))
+        relay_first = self.coordinator.observe_logs(self.log_error("relay"), now=0)
         self.assertEqual(relay_first, [])
-        relay_warning = self.coordinator.observe_logs(self.log_error("relay"))
+        relay_warning = self.coordinator.observe_logs(self.log_error("relay"), now=60)
         self.assertEqual(len(relay_warning), 1)
         self.assertEqual(relay_warning[0].event_key, "service-relay")
 

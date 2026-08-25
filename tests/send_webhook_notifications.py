@@ -79,6 +79,14 @@ def main() -> int:
                 "Human intervention is required."
             ),
         ),
+        SUPERVISOR.NotificationEvent(
+            service="webhook-format-test",
+            display_name="Webhook format test",
+            event_key="webhook-format-test",
+            severity="error",
+            action="resolve",
+            message="Webhook format test has remained healthy and free of monitored issues for 10 minutes.",
+        ),
     )
 
     attempted = 0

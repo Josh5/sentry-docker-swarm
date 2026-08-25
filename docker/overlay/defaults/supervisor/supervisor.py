@@ -33,6 +33,7 @@ ERROR_OBSERVATION = 3
 INITIAL_LOG_LOOKBACK_SECONDS = 180
 MAX_LOG_COLLECTORS = 4
 DIND_PROBE_TIMEOUT_SECONDS = 10
+RECOVERY_STABILITY_SECONDS = 600
 WEBHOOK_USER_AGENT = "DiscordBot (https://github.com/Josh5/sentry-docker-swarm, 1.0)"
 WEBHOOK_ATTEMPTS = 3
 
@@ -167,6 +168,7 @@ class HealthBatch:
 @dataclass(frozen=True)
 class LogBatch:
     observations: tuple[LogObservation, ...]
+    collected_at: float = field(default_factory=time.time)
 
 
 @dataclass(frozen=True)
@@ -208,6 +210,8 @@ class ServiceIncident:
     alert_level: str = "none"
     restart_total: int | None = None
     next_health_evaluation: float = 0.0
+    recovery_candidate_since: float | None = None
+    log_available: bool = True
 
 
 class IncidentCoordinator:
@@ -259,20 +263,23 @@ class IncidentCoordinator:
                 LOG.info("%s health observation recovered", state.display_name)
             state.health_active = False
             state.health_reason = ""
-            state.health_failures.clear()
             state.next_health_evaluation = 0.0
 
-        return recoveries, self._evaluate(state)
+        return recoveries, self._evaluate(state, timestamp)
 
-    def observe_logs(self, observation: LogObservation) -> list[NotificationEvent]:
-        if not observation.available:
-            return []
-
+    def observe_logs(self, observation: LogObservation, *, now: float | None = None) -> list[NotificationEvent]:
+        timestamp = time.time() if now is None else now
         state = self._state(
             observation.service,
             observation.service,
             f"service-{observation.service}",
         )
+        if not observation.available:
+            state.log_available = False
+            state.recovery_candidate_since = None
+            return []
+
+        state.log_available = True
         if observation.matches:
             state.log_active = True
             state.log_failure_count += 1
@@ -282,9 +289,8 @@ class IncidentCoordinator:
             if state.log_active:
                 LOG.info("%s log observation recovered", state.display_name)
             state.log_active = False
-            state.log_failure_count = 0
             state.log_reason = ""
-        return self._evaluate(state)
+        return self._evaluate(state, timestamp)
 
     def defer_health_evaluation(self, service: str, until: float) -> None:
         state = self.states.get(service)
@@ -298,24 +304,46 @@ class IncidentCoordinator:
             self.states[service] = state
         return state
 
-    def _evaluate(self, state: ServiceIncident) -> list[NotificationEvent]:
+    def _evaluate(self, state: ServiceIncident, timestamp: float) -> list[NotificationEvent]:
         active = state.health_active or state.log_active
         if not active:
             if state.alert_level == "none":
+                self._reset_incident(state)
                 return []
+            if not state.log_available:
+                state.recovery_candidate_since = None
+                return []
+            if state.recovery_candidate_since is None:
+                state.recovery_candidate_since = timestamp
+                LOG.info(
+                    "%s entered the %ss recovery stability period",
+                    state.display_name,
+                    RECOVERY_STABILITY_SECONDS,
+                )
+                return []
+            if timestamp - state.recovery_candidate_since < RECOVERY_STABILITY_SECONDS:
+                return []
+
             previous_level = state.alert_level
             state.alert_level = "none"
             LOG.info("Resolving %s incident", state.display_name)
-            return [
-                NotificationEvent(
-                    service=state.service,
-                    display_name=state.display_name,
-                    event_key=state.event_key,
-                    severity=previous_level,
-                    action="resolve",
-                    message=f"{state.display_name} is healthy and no new configured log errors are present.",
-                )
-            ]
+            notification = NotificationEvent(
+                service=state.service,
+                display_name=state.display_name,
+                event_key=state.event_key,
+                severity=previous_level,
+                action="resolve",
+                message=(
+                    f"{state.display_name} has remained healthy and free of monitored issues for "
+                    f"{RECOVERY_STABILITY_SECONDS // 60} minutes."
+                ),
+            )
+            self._reset_incident(state)
+            return [notification]
+
+        if state.recovery_candidate_since is not None:
+            LOG.info("%s recovery stability period reset by a new issue", state.display_name)
+            state.recovery_candidate_since = None
 
         observation_count = max(len(state.health_failures), state.log_failure_count)
         desired_level = (
@@ -355,6 +383,12 @@ class IncidentCoordinator:
                 ),
             )
         ]
+
+    @staticmethod
+    def _reset_incident(state: ServiceIncident) -> None:
+        state.health_failures.clear()
+        state.log_failure_count = 0
+        state.recovery_candidate_since = None
 
     @staticmethod
     def _summarize_matches(matches: Iterable[LogMatch]) -> str:
@@ -987,7 +1021,7 @@ class Supervisor:
                 notifications.extend(new_notifications)
         else:
             for observation in batch.observations:
-                notifications.extend(self.coordinator.observe_logs(observation))
+                notifications.extend(self.coordinator.observe_logs(observation, now=batch.collected_at))
 
         for event in notifications:
             self.notifier.enqueue(event)
