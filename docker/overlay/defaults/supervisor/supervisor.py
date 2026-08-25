@@ -20,6 +20,8 @@ from collections.abc import Callable, Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import suppress
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from html import escape
 from pathlib import Path
 
 HEALTH_INTERVAL_SECONDS = 30
@@ -31,6 +33,8 @@ ERROR_OBSERVATION = 3
 INITIAL_LOG_LOOKBACK_SECONDS = 180
 MAX_LOG_COLLECTORS = 4
 DIND_PROBE_TIMEOUT_SECONDS = 10
+WEBHOOK_USER_AGENT = "DiscordBot (https://github.com/Josh5/sentry-docker-swarm, 1.0)"
+WEBHOOK_ATTEMPTS = 3
 
 LOG = logging.getLogger("sentry-supervisor")
 
@@ -78,6 +82,7 @@ class SupervisorConfig:
     notify_webhook_urls: str
     pagerduty_integration_key: str
     node_name: str
+    node_cluster: str
     dind_run_command: str
     dind_network_connect_command: str
     services_cpu_quota: str
@@ -101,6 +106,7 @@ class SupervisorConfig:
             notify_webhook_urls=os.environ.get("NOTIFY_WEBHOOK_URLS", ""),
             pagerduty_integration_key=os.environ.get("PAGERDUTY_INTEGRATION_KEY", ""),
             node_name=os.environ.get("NODE_NAME", "sentry-manager"),
+            node_cluster=os.environ.get("NODE_CLUSTER", "default"),
             dind_run_command=os.environ["DIND_RUN_CMD"],
             dind_network_connect_command=os.environ["DIND_NET_CONN_CMD"],
             services_cpu_quota=os.environ["SERVICES_CPU_QUOTA"],
@@ -178,6 +184,14 @@ class NotificationEvent:
     severity: str
     action: str
     message: str
+    created_at: float = field(default_factory=time.time)
+
+
+@dataclass(frozen=True)
+class DeliveryResult:
+    success: bool
+    status_code: int | None = None
+    detail: str = ""
 
 
 @dataclass
@@ -349,11 +363,172 @@ class IncidentCoordinator:
         )
 
 
+def classify_webhook(endpoint: str) -> tuple[str, str]:
+    for prefix, webhook_type in (
+        ("discord=", "discord"),
+        ("google-chat=", "google-chat"),
+        ("google_chat=", "google-chat"),
+        ("slack=", "slack"),
+        ("generic=", "generic"),
+    ):
+        if endpoint.startswith(prefix):
+            return webhook_type, endpoint[len(prefix) :]
+    if "discord.com/api/webhooks/" in endpoint or "discordapp.com/api/webhooks/" in endpoint:
+        return "discord", endpoint
+    if "chat.googleapis.com/" in endpoint:
+        return "google-chat", endpoint
+    if "hooks.slack.com/" in endpoint:
+        return "slack", endpoint
+    return "generic", endpoint
+
+
+def format_notification_message(event: NotificationEvent) -> str:
+    if event.action == "resolve":
+        return f"[RESOLVED] {event.message}"
+    return f"[{event.severity.upper()}] {event.message}"
+
+
+def notification_presentation(event: NotificationEvent) -> tuple[str, str, int]:
+    if event.action == "resolve":
+        return "✅", "Sentry service recovered", 0x16A34A
+    if event.severity == "error":
+        return "🚨", "Sentry service error", 0xDC2626
+    return "⚠️", "Sentry service warning", 0xF59E0B
+
+
+def build_webhook_payload(
+    webhook_type: str,
+    event: NotificationEvent,
+    *,
+    node_name: str = "sentry-manager",
+    node_cluster: str = "default",
+) -> dict[str, object]:
+    icon, title, color = notification_presentation(event)
+    formatted = format_notification_message(event)
+    generated_at = datetime.fromtimestamp(event.created_at, tz=UTC)
+
+    if webhook_type == "discord":
+        return {
+            "username": "Sentry Supervisor",
+            "allowed_mentions": {"parse": []},
+            "embeds": [
+                {
+                    "title": f"{icon} {title}",
+                    "description": event.message,
+                    "color": color,
+                    "fields": [
+                        {"name": "Service", "value": event.display_name, "inline": True},
+                        {"name": "Severity", "value": event.severity.upper(), "inline": True},
+                    ],
+                    "footer": {"text": f"Incident: {event.event_key}"},
+                    "timestamp": generated_at.isoformat().replace("+00:00", "Z"),
+                }
+            ],
+        }
+
+    if webhook_type == "google-chat":
+        return {
+            "text": f"[{node_cluster}] {title}: {event.display_name}",
+            "cardsV2": [
+                {
+                    "cardId": re.sub(r"[^a-zA-Z0-9_-]", "-", event.event_key)[:64],
+                    "card": {
+                        "header": {
+                            "title": f"{icon} {title}",
+                            "subtitle": f"{event.severity.upper()} • {node_cluster} • {node_name}",
+                        },
+                        "sections": [
+                            {
+                                "widgets": [
+                                    {"textParagraph": {"text": escape(event.message)}},
+                                    {
+                                        "decoratedText": {
+                                            "topLabel": "Source",
+                                            "text": "sentry-supervisor",
+                                        }
+                                    },
+                                    {
+                                        "decoratedText": {
+                                            "topLabel": "Service",
+                                            "text": escape(event.display_name),
+                                            "bottomLabel": escape(event.service),
+                                        }
+                                    },
+                                    {
+                                        "decoratedText": {
+                                            "topLabel": "Incident",
+                                            "text": escape(event.event_key),
+                                        }
+                                    },
+                                ]
+                            },
+                            {
+                                "widgets": [
+                                    {
+                                        "decoratedText": {
+                                            "startIcon": {"materialIcon": {"name": "schedule"}},
+                                            "text": (
+                                                "<b>Notification time:</b> "
+                                                f"{generated_at.strftime('%Y-%m-%d %H:%M:%S UTC')}"
+                                            ),
+                                        }
+                                    },
+                                ]
+                            },
+                        ],
+                    },
+                }
+            ],
+        }
+
+    return {"text": formatted}
+
+
+def post_json(url: str, payload: dict[str, object], destination: str) -> DeliveryResult:
+    last_detail = "Unknown delivery error"
+    last_status: int | None = None
+
+    for attempt in range(1, WEBHOOK_ATTEMPTS + 1):
+        request = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json; charset=UTF-8",
+                "User-Agent": WEBHOOK_USER_AGENT,
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=10) as response:
+                response_body = response.read().decode("utf-8", errors="replace").strip()
+                status_code = getattr(response, "status", None)
+            return DeliveryResult(success=True, status_code=status_code, detail=response_body[:1000])
+        except urllib.error.HTTPError as error:
+            last_status = error.code
+            response_body = error.read().decode("utf-8", errors="replace").strip()
+            last_detail = f"HTTP {error.code} {error.reason}"
+            if response_body:
+                last_detail = f"{last_detail}: {response_body[:1000]}"
+            retryable = error.code == 429 or 500 <= error.code < 600
+            if not retryable:
+                break
+        except (OSError, urllib.error.URLError) as error:
+            last_detail = str(error)
+
+        if attempt < WEBHOOK_ATTEMPTS:
+            time.sleep(2)
+
+    LOG.error("Failed to send notification to %s: %s", destination, last_detail)
+    return DeliveryResult(success=False, status_code=last_status, detail=last_detail)
+
+
 class NotificationHandler:
     def __init__(self, config: SupervisorConfig) -> None:
         self.webhook_urls = config.notify_webhook_urls
         self.pagerduty_key = config.pagerduty_integration_key
         self.node_name = config.node_name
+        self.node_cluster = config.node_cluster
         self.events: queue.Queue[NotificationEvent | None] = queue.Queue()
         self.worker = threading.Thread(target=self._run, name="notification-handler", daemon=True)
 
@@ -378,27 +553,15 @@ class NotificationHandler:
                 LOG.exception("Notification handler failed for %s", event.event_key)
 
     def _send(self, event: NotificationEvent) -> None:
-        formatted = (
-            f"[RESOLVED] {event.message}"
-            if event.action == "resolve"
-            else f"[{event.severity.upper()}] {event.message}"
-        )
         for endpoint in filter(None, re.split(r"[,\s]+", self.webhook_urls)):
-            webhook_type, url = self._classify_webhook(endpoint)
-            payload = (
-                {"content": formatted}
-                if webhook_type == "discord"
-                else {"text": formatted}
-                if webhook_type in {"slack", "google-chat"}
-                else {
-                    "severity": event.severity,
-                    "service": event.service,
-                    "event_key": event.event_key,
-                    "action": event.action,
-                    "message": formatted,
-                }
+            webhook_type, url = classify_webhook(endpoint)
+            payload = build_webhook_payload(
+                webhook_type,
+                event,
+                node_name=self.node_name,
+                node_cluster=self.node_cluster,
             )
-            self._post(url, payload, f"{webhook_type} webhook")
+            post_json(url, payload, f"{webhook_type} webhook")
 
         if not self.pagerduty_key:
             return
@@ -424,46 +587,7 @@ class NotificationHandler:
             }
         else:
             return
-        self._post("https://events.pagerduty.com/v2/enqueue", payload, "PagerDuty")
-
-    @staticmethod
-    def _classify_webhook(endpoint: str) -> tuple[str, str]:
-        for prefix, webhook_type in (
-            ("discord=", "discord"),
-            ("google-chat=", "google-chat"),
-            ("google_chat=", "google-chat"),
-            ("slack=", "slack"),
-            ("generic=", "generic"),
-        ):
-            if endpoint.startswith(prefix):
-                return webhook_type, endpoint[len(prefix) :]
-        if "discord.com/api/webhooks/" in endpoint or "discordapp.com/api/webhooks/" in endpoint:
-            return "discord", endpoint
-        if "chat.googleapis.com/" in endpoint:
-            return "google-chat", endpoint
-        if "hooks.slack.com/" in endpoint:
-            return "slack", endpoint
-        return "generic", endpoint
-
-    @staticmethod
-    def _post(url: str, payload: dict[str, object], destination: str) -> None:
-        request = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        last_error: Exception | None = None
-        for attempt in range(1, 4):
-            try:
-                with urllib.request.urlopen(request, timeout=10) as response:
-                    response.read()
-                return
-            except (OSError, urllib.error.URLError) as error:
-                last_error = error
-                if attempt < 3:
-                    time.sleep(2)
-        LOG.error("Failed to send notification to %s after 3 attempts: %s", destination, last_error)
+        post_json("https://events.pagerduty.com/v2/enqueue", payload, "PagerDuty")
 
 
 class HealthCollector:

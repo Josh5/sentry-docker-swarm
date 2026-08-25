@@ -130,6 +130,8 @@
 #   #     Optional comma- or whitespace-separated webhook destinations for manager warning and error notifications.
 #   #     Discord, Google Chat, and Slack URLs are detected automatically. Prefix ambiguous or custom URLs with
 #   #     discord=, google-chat=, slack=, or generic= to select the request format explicitly.
+#   #     Test configured Discord and Google Chat destinations from this project root with:
+#   #       uv run python tests/send_webhook_notifications.py
 #   NOTIFY_WEBHOOK_URLS=
 #   #-  - PAGERDUTY_INTEGRATION_KEY -
 #   #     Optional PagerDuty Events API v2 integration/routing key. When set, manager error notifications trigger

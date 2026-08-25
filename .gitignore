@@ -7,3 +7,7 @@
 # Development files
 .env
 /.cache/**
+
+# Python bytecode:
+*.py[co]
+__pycache__
