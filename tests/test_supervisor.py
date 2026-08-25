@@ -7,6 +7,7 @@ import logging
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import Mock
 
 SUPERVISOR_PATH = Path(__file__).parents[1] / "docker" / "overlay" / "defaults" / "supervisor" / "supervisor.py"
 SPEC = importlib.util.spec_from_file_location("sentry_supervisor", SUPERVISOR_PATH)
@@ -91,6 +92,28 @@ class IncidentCoordinatorTests(unittest.TestCase):
         relay_warning = self.coordinator.observe_logs(self.log_error("relay"))
         self.assertEqual(len(relay_warning), 1)
         self.assertEqual(relay_warning[0].event_key, "service-relay")
+
+
+class HealthCollectorTests(unittest.TestCase):
+    def test_running_container_with_starting_health_is_given_startup_grace(self) -> None:
+        collector = SUPERVISOR.HealthCollector(object(), object())
+        collector._dind_is_healthy = Mock(return_value=True)
+        collector._services = Mock(return_value=["snuba"])
+        collector._inspect_compose_containers = Mock(
+            return_value=[
+                {
+                    "Config": {"Labels": {"com.docker.compose.service": "snuba"}},
+                    "State": {"Status": "running", "Health": {"Status": "starting"}},
+                    "RestartCount": 0,
+                }
+            ]
+        )
+
+        observation = next(item for item in collector.collect().observations if item.service == "snuba")
+
+        self.assertTrue(observation.healthy)
+        self.assertFalse(observation.needs_restart)
+        self.assertIn("health=starting", observation.reason)
 
 
 if __name__ == "__main__":
