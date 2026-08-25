@@ -24,6 +24,7 @@ global:
     container_runtime: "dind"
 scrape_configs:
   - job_name: cadvisor-dind
+    max_scrape_size: 64MB
     static_configs:
       - targets: ["cadvisor:8080"]
     metric_relabel_configs:
@@ -48,6 +49,7 @@ EOF
 set -- /vmagent-prod \
     -promscrape.config=/etc/vmagent/prometheus.yml \
     "-remoteWrite.url=${SENTRY_METRICS_FORWARD_REMOTE_WRITE_URL}" \
+    -promscrape.maxScrapeSize=64MB \
     -remoteWrite.maxDiskUsagePerURL=1GB \
     -remoteWrite.tmpDataPath=/vmagent-remotewrite-data \
     -httpListenAddr=:8429
