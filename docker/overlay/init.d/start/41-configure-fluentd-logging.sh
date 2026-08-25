@@ -20,13 +20,33 @@ if [ "${CUSTOM_LOG_DRIVER:-}" = "fluentd" ]; then
 
     echo "  - Installing fluentd config"
     cp -fv /defaults/fluentd/fluent.template.conf ${fluentd_data_path:?}/etc/fluent.conf
-    if [ "X${FLUENTD_ADDITIONAL_SOURCE_TAGS:-}" != "X" ]; then
-        echo "  - Add additional records ${FLUENTD_ADDITIONAL_SOURCE_TAGS:?} to record_transformer filter in fluentd config."
-        IFS=',' read -ra pairs <<<"${FLUENTD_ADDITIONAL_SOURCE_TAGS:?}"
+
+    append_fluentd_label() {
+        local label_name="${1:?}"
+        local label_value="${2:-}"
+        if [ -z "${label_value}" ]; then
+            return
+        fi
+        case ",${FLUENTD_ADDITIONAL_LABELS:-}," in
+        *",${label_name}:"*) return ;;
+        esac
+        if [ -n "${FLUENTD_ADDITIONAL_LABELS:-}" ]; then
+            FLUENTD_ADDITIONAL_LABELS+=","
+        fi
+        FLUENTD_ADDITIONAL_LABELS+="${label_name}:${label_value}"
+    }
+    append_fluentd_label "source_instance_id" "${NODE_ID:-}"
+    append_fluentd_label "source_hostname" "${NODE_NAME:-}"
+    append_fluentd_label "source_cluster" "${NODE_CLUSTER:-}"
+    unset -f append_fluentd_label
+
+    if [ "X${FLUENTD_ADDITIONAL_LABELS:-}" != "X" ]; then
+        echo "  - Add additional records ${FLUENTD_ADDITIONAL_LABELS:?} to record_transformer filter in fluentd config."
+        IFS=',' read -ra pairs <<<"${FLUENTD_ADDITIONAL_LABELS:?}"
         for pair in "${pairs[@]}"; do
             key="${pair%%:*}"
             value="${pair##*:}"
-            sed -i "/# <FLUENTD_ADDITIONAL_SOURCE_TAGS>/a \ \ \ \ \ \ \ \ \ \ \ \ source.${key} \"${value}\"" "${fluentd_data_path:?}/etc/fluent.conf"
+            sed -i "/# <FLUENTD_ADDITIONAL_LABELS>/a \ \ \ \ \ \ \ \ \ \ \ \ ${key} \"${value}\"" "${fluentd_data_path:?}/etc/fluent.conf"
         done
     fi
 

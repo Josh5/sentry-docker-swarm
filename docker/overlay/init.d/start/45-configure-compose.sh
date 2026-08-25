@@ -94,10 +94,10 @@ x-logging-base: &logging-base
       fluentd-async: "true"
       fluentd-async-reconnect-interval: "5s"
       fluentd-retry-wait: 5s
-      labels: "source.service,source.version"
+      labels: "service_project,service_name,service_version"
 
 EOF
-    echo "x-logging-base/logging/driver/fluentd/fluentd-address/localhost:24224/tag/${FLUENTD_TAG:-sentry}.{{.Name}}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
+    echo "x-logging-base/logging/driver/fluentd/fluentd-address/localhost:24224/tag/${FLUENTD_TAG:-sentry}.{{.Name}}/labels/service_project,service_name,service_version" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
 else
     echo "    - Configure Docker Compose to use local log driver for all services."
     cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
@@ -161,8 +161,9 @@ for service in ${compose_services:?}; do
     cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
   ${service:?}:
     labels:
-      - "source.service=${service:?}"
-      - "source.version=Sentry-v${SENTRY_VERSION:?}"
+      - "service_project=sentry"
+      - "service_name=${service:?}"
+      - "service_version=Sentry-v${SENTRY_VERSION:?}"
     <<: 
       - *env-import
 EOF
@@ -249,8 +250,9 @@ if [ "${SENTRY_INGEST_FILTER_ENABLED:-false}" = "true" ]; then
     image: docker.io/josh5/sentry-ingest-filter:latest
     mem_limit: 512M
     labels:
-      - "source.service=sentry-ingest-filter"
-      - "source.version=Sentry-v${SENTRY_VERSION:?}"
+      - "service_project=sentry"
+      - "service_name=sentry-ingest-filter"
+      - "service_version=Sentry-v${SENTRY_VERSION:?}"
     <<: *logging-base
     environment:
       - LISTEN_ADDR=:8081
