@@ -138,6 +138,52 @@ class IncidentCoordinatorTests(unittest.TestCase):
         self.assertEqual(len(relay_warning), 1)
         self.assertEqual(relay_warning[0].event_key, "service-relay")
 
+    def test_state_persistence_retains_alert_level_across_restarts_and_resolves(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state_file = Path(temp_dir) / "supervisor" / "incident-state.json"
+            coordinator1 = SUPERVISOR.IncidentCoordinator(state_file=state_file)
+
+            # Trigger warning and error on coordinator 1
+            coordinator1.observe_health(self.unhealthy("cadvisor"), now=0)
+            coordinator1.observe_health(self.unhealthy("cadvisor"), now=120)
+            _, error_notification = coordinator1.observe_health(self.unhealthy("cadvisor"), now=240)
+            self.assertEqual(len(error_notification), 1)
+            self.assertEqual(error_notification[0].severity, "error")
+            self.assertTrue(state_file.exists())
+
+            # Simulate supervisor restart with coordinator 2 loading state file
+            coordinator2 = SUPERVISOR.IncidentCoordinator(state_file=state_file)
+            self.assertIn("cadvisor", coordinator2.states)
+            self.assertEqual(coordinator2.states["cadvisor"].alert_level, "error")
+
+            # Health observation after restart: healthy
+            _, initial_healthy = coordinator2.observe_health(self.healthy("cadvisor"), now=300)
+            self.assertEqual(initial_healthy, [])  # Enters recovery stability period, no immediate resolve
+
+            # 5 minutes later, still in stability period
+            _, mid_healthy = coordinator2.observe_health(self.healthy("cadvisor"), now=600)
+            self.assertEqual(mid_healthy, [])
+
+            # 10 minutes after initial healthy observation -> resolves
+            _, resolved = coordinator2.observe_health(self.healthy("cadvisor"), now=901)
+            self.assertEqual(len(resolved), 1)
+            self.assertEqual(resolved[0].action, "resolve")
+            self.assertEqual(resolved[0].severity, "error")
+            self.assertEqual(resolved[0].service, "cadvisor")
+            self.assertEqual(coordinator2.states["cadvisor"].alert_level, "none")
+
+    def test_corrupted_state_file_handled_gracefully(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state_file = Path(temp_dir) / "incident-state.json"
+            state_file.write_text("{corrupted json", encoding="utf-8")
+
+            coordinator = SUPERVISOR.IncidentCoordinator(state_file=state_file)
+            self.assertEqual(coordinator.states, {})
+
 
 class HealthCollectorTests(unittest.TestCase):
     def test_running_container_with_starting_health_is_given_startup_grace(self) -> None:

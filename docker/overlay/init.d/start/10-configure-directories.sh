@@ -13,5 +13,6 @@ echo "--- Create data directories ---"
 mkdir -p \
     ${SENTRY_DATA_PATH:?}/self_hosted \
     ${SENTRY_DATA_PATH:?}/update_backups \
-    ${SENTRY_DATA_PATH:?}/sentry-ingest-filter
+    ${SENTRY_DATA_PATH:?}/sentry-ingest-filter \
+    ${SENTRY_DATA_PATH:?}/supervisor
 echo

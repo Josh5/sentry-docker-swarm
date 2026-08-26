@@ -89,6 +89,7 @@ class SupervisorConfig:
     services_cpu_quota: str
     cpu_period: str
     dind_cpu_shares: str
+    state_file: Path
 
     @classmethod
     def from_environment(cls) -> SupervisorConfig:
@@ -113,6 +114,7 @@ class SupervisorConfig:
             services_cpu_quota=os.environ["SERVICES_CPU_QUOTA"],
             cpu_period=os.environ["CPU_PERIOD"],
             dind_cpu_shares=os.environ.get("DIND_CPU_SHARES", "512"),
+            state_file=Path(os.environ.get("SUPERVISOR_STATE_FILE", data_path / "supervisor" / "incident-state.json")),
         )
 
     @property
@@ -213,12 +215,96 @@ class ServiceIncident:
     recovery_candidate_since: float | None = None
     log_available: bool = True
 
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "service": self.service,
+            "display_name": self.display_name,
+            "event_key": self.event_key,
+            "health_failures": list(self.health_failures),
+            "log_failure_count": self.log_failure_count,
+            "health_active": self.health_active,
+            "log_active": self.log_active,
+            "health_reason": self.health_reason,
+            "log_reason": self.log_reason,
+            "alert_level": self.alert_level,
+            "restart_total": self.restart_total,
+            "next_health_evaluation": self.next_health_evaluation,
+            "recovery_candidate_since": self.recovery_candidate_since,
+            "log_available": self.log_available,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, object]) -> ServiceIncident:
+        raw_failures = data.get("health_failures")
+        health_failures = deque(float(item) for item in raw_failures) if isinstance(raw_failures, list) else deque()
+        return cls(
+            service=str(data.get("service", "")),
+            display_name=str(data.get("display_name") or data.get("service", "")),
+            event_key=str(data.get("event_key") or f"service-{data.get('service', '')}"),
+            health_failures=health_failures,
+            log_failure_count=int(data.get("log_failure_count", 0)),
+            health_active=bool(data.get("health_active", False)),
+            log_active=bool(data.get("log_active", False)),
+            health_reason=str(data.get("health_reason", "")),
+            log_reason=str(data.get("log_reason", "")),
+            alert_level=str(data.get("alert_level", "none")),
+            restart_total=int(data["restart_total"]) if data.get("restart_total") is not None else None,
+            next_health_evaluation=0.0,
+            recovery_candidate_since=None,
+            log_available=bool(data.get("log_available", True)),
+        )
+
 
 class IncidentCoordinator:
     """Combines all observations into one incident lifecycle per service."""
 
-    def __init__(self) -> None:
+    def __init__(self, state_file: Path | None = None) -> None:
+        self.state_file = state_file
         self.states: dict[str, ServiceIncident] = {}
+        self._dirty = False
+        if self.state_file is not None:
+            self._load_state()
+
+    def _load_state(self) -> None:
+        if self.state_file is None or not self.state_file.exists():
+            return
+        try:
+            with self.state_file.open("r", encoding="utf-8") as file:
+                payload = json.load(file)
+            if isinstance(payload, dict):
+                for service, raw_state in payload.items():
+                    if isinstance(raw_state, dict) and "service" in raw_state:
+                        self.states[service] = ServiceIncident.from_dict(raw_state)
+                LOG.info(
+                    "Loaded supervisor incident state for %d service(s) from %s", len(self.states), self.state_file
+                )
+        except Exception as error:
+            LOG.warning("Failed to load supervisor incident state from %s: %s", self.state_file, error)
+
+    def _save_state(self, *, force: bool = False) -> None:
+        if self.state_file is None or (not self._dirty and not force):
+            return
+        try:
+            self.state_file.parent.mkdir(parents=True, exist_ok=True)
+            temp_file = self.state_file.with_name(f"{self.state_file.name}.tmp.{os.getpid()}")
+            payload = {
+                service: state.to_dict()
+                for service, state in self.states.items()
+                if state.alert_level != "none"
+                or state.health_active
+                or state.log_active
+                or state.health_failures
+                or state.log_failure_count > 0
+                or state.recovery_candidate_since is not None
+            }
+            with temp_file.open("w", encoding="utf-8") as file:
+                json.dump(payload, file, indent=2)
+                file.flush()
+                os.fsync(file.fileno())
+            temp_file.replace(self.state_file)
+            self._dirty = False
+        except Exception as error:
+            LOG.warning("Failed to save supervisor incident state to %s: %s", self.state_file, error)
 
     def observe_health(
         self, observation: HealthObservation, *, now: float | None = None
@@ -250,6 +336,7 @@ class IncidentCoordinator:
             )
             LOG.warning("%s health observation failed: %s", state.display_name, state.health_reason)
             state.next_health_evaluation = timestamp + observation.recheck_seconds
+            self._dirty = True
             if observation.needs_restart and observation.recovery_kind:
                 recoveries.append(
                     RecoveryRequest(
@@ -261,11 +348,14 @@ class IncidentCoordinator:
         else:
             if state.health_active:
                 LOG.info("%s health observation recovered", state.display_name)
+                self._dirty = True
             state.health_active = False
             state.health_reason = ""
             state.next_health_evaluation = 0.0
 
-        return recoveries, self._evaluate(state, timestamp)
+        notifications = self._evaluate(state, timestamp)
+        self._save_state()
+        return recoveries, notifications
 
     def observe_logs(self, observation: LogObservation, *, now: float | None = None) -> list[NotificationEvent]:
         timestamp = time.time() if now is None else now
@@ -275,8 +365,11 @@ class IncidentCoordinator:
             f"service-{observation.service}",
         )
         if not observation.available:
+            if state.log_available or state.recovery_candidate_since is not None:
+                self._dirty = True
             state.log_available = False
             state.recovery_candidate_since = None
+            self._save_state()
             return []
 
         state.log_available = True
@@ -284,37 +377,53 @@ class IncidentCoordinator:
             state.log_active = True
             state.log_failure_count += 1
             state.log_reason = self._summarize_matches(observation.matches)
+            self._dirty = True
             LOG.warning("%s log observation failed: %s", state.display_name, state.log_reason)
         else:
             if state.log_active:
                 LOG.info("%s log observation recovered", state.display_name)
+                self._dirty = True
             state.log_active = False
             state.log_reason = ""
-        return self._evaluate(state, timestamp)
+        notifications = self._evaluate(state, timestamp)
+        self._save_state()
+        return notifications
 
     def defer_health_evaluation(self, service: str, until: float) -> None:
         state = self.states.get(service)
         if state is not None:
             state.next_health_evaluation = max(state.next_health_evaluation, until)
+            self._dirty = True
+            self._save_state()
 
     def _state(self, service: str, display_name: str, event_key: str) -> ServiceIncident:
         state = self.states.get(service)
         if state is None:
             state = ServiceIncident(service, display_name, event_key)
             self.states[service] = state
+        else:
+            if display_name:
+                state.display_name = display_name
+            if event_key:
+                state.event_key = event_key
         return state
 
     def _evaluate(self, state: ServiceIncident, timestamp: float) -> list[NotificationEvent]:
         active = state.health_active or state.log_active
         if not active:
             if state.alert_level == "none":
+                if state.health_failures or state.log_failure_count > 0 or state.recovery_candidate_since is not None:
+                    self._dirty = True
                 self._reset_incident(state)
                 return []
             if not state.log_available:
+                if state.recovery_candidate_since is not None:
+                    self._dirty = True
                 state.recovery_candidate_since = None
                 return []
             if state.recovery_candidate_since is None:
                 state.recovery_candidate_since = timestamp
+                self._dirty = True
                 LOG.info(
                     "%s entered the %ss recovery stability period",
                     state.display_name,
@@ -326,6 +435,7 @@ class IncidentCoordinator:
 
             previous_level = state.alert_level
             state.alert_level = "none"
+            self._dirty = True
             LOG.info("Resolving %s incident", state.display_name)
             notification = NotificationEvent(
                 service=state.service,
@@ -344,6 +454,7 @@ class IncidentCoordinator:
         if state.recovery_candidate_since is not None:
             LOG.info("%s recovery stability period reset by a new issue", state.display_name)
             state.recovery_candidate_since = None
+            self._dirty = True
 
         observation_count = max(len(state.health_failures), state.log_failure_count)
         desired_level = (
@@ -361,6 +472,7 @@ class IncidentCoordinator:
             return []
 
         state.alert_level = desired_level
+        self._dirty = True
         evidence = "; ".join(
             reason
             for reason in (
@@ -953,7 +1065,7 @@ class Supervisor:
     def __init__(self, config: SupervisorConfig) -> None:
         self.config = config
         self.runner = CommandRunner()
-        self.coordinator = IncidentCoordinator()
+        self.coordinator = IncidentCoordinator(state_file=config.state_file)
         self.notifier = NotificationHandler(config)
         self.recovery = RecoveryHandler(config, self.runner)
         self.observations: queue.Queue[HealthBatch | LogBatch] = queue.Queue()
