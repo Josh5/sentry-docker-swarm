@@ -3,13 +3,27 @@
         "service": "worker",
         "patterns": [
             "OOM command not allowed when used memory > 'maxmemory'",
-            "Failed to resolve 'kafka"
+            "Failed to resolve 'kafka",
+            "OperationalError: could not connect to server"
         ]
     },
     {
         "service": "(.*-consumer.*)|(post-process-forwarder-errors)|(ingest-.*)|(monitors-clock.*)",
         "patterns": [
-            "Broker: Offset out of range"
+            "Broker: Offset out of range",
+            "Failed to commit offsets"
+        ]
+    },
+    {
+        "service": "snuba-.*",
+        "patterns": [
+            "Traceback \\(most recent call last\\):",
+            "Failed to initialize",
+            "sentry_options\\.(SchemaError|InitializationError)",
+            "panicked at",
+            "fatal runtime error",
+            "DB::NetException",
+            "AllBrokersDown"
         ]
     }
 ]
