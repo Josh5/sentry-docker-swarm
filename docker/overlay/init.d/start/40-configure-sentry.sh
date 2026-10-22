@@ -199,13 +199,13 @@ min_nodestore_version="25.9.0"
 if [[ -n "${SENTRY_VERSION:-}" && "$(printf '%s\n' "$SENTRY_VERSION" "$min_nodestore_version" | sort -V | tail -n1)" == "$SENTRY_VERSION" ]]; then
     echo "  - Patching migration from Postgres to Nodestore"
     nodestore_bootstrap="${SENTRY_DATA_PATH}/self_hosted/install/bootstrap-s3-nodestore.sh"
-    if [ -f "${nodestore_bootstrap}" ]; then
+    if [ "$(printf '%s\n' "${SENTRY_VERSION}" "26.8.0" | sort -V | head -n1)" != "26.8.0" ] && [ -f "${nodestore_bootstrap}" ]; then
         echo "      - Correcting Nodestore bucket existence check on installer"
         condition_target='if [[ $(echo "$bucket_list" | tail -1 | awk '"'"'{print $3}'"'"') != '"'"'s3://nodestore'"'"' ]]; then'
         condition_replacement='if ! echo "$bucket_list" | awk '"'"'{print $3}'"'"' | grep -qx '"'"'s3://nodestore'"'"'; then'
         bash "${HELPERS_DIR}/replace_in_file.sh" "${nodestore_bootstrap}" "${condition_target}" "${condition_replacement}"
     else
-        echo "      - Skipping Nodestore bucket patch; file not found"
+        echo "      - Nodestore bucket patch not needed or installer file not found"
     fi
 
     force_nodestore_read_through=0
@@ -250,6 +250,20 @@ if [[ -n "${SENTRY_VERSION:-}" && "$(printf '%s\n' "$SENTRY_VERSION" "$min_nodes
     fi
 else
     echo "  - Skipping Nodestore patch; SENTRY_VERSION (${SENTRY_VERSION}) < ${min_nodestore_version}"
+fi
+# Sentry 26.10 runs its image as the sentry user. Legacy SeaweedFS passphrases
+# are root-owned (0600), so only the one-shot recovery helper needs container UID 0.
+# Keep the key permissions and normal Sentry service user unchanged.
+# https://github.com/getsentry/self-hosted/issues/4577
+min_nonroot_sentry_version="26.10.0"
+if [ "$(printf '%s\n' "${SENTRY_VERSION:?}" "${min_nonroot_sentry_version}" | sort -V | head -n1)" = "${min_nonroot_sentry_version}" ]; then
+    kek_migration="${SENTRY_DATA_PATH}/self_hosted/install/migrate-seaweedfs-kek.sh"
+    if [ -f "${kek_migration}" ]; then
+        echo "  - Allowing the one-shot SeaweedFS key recovery helper to read its legacy passphrase"
+        bash "${HELPERS_DIR}/replace_in_file.sh" "${kek_migration}" \
+            "          --entrypoint python3 \\" \
+            "          --user 0:0 --entrypoint python3 \\"
+    fi
 fi
 ########### END sentry.conf.py PATCHES ###########
 

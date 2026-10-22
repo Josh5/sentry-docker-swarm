@@ -31,20 +31,11 @@ if [[ -n "${SENTRY_VERSION:-}" && "$(printf '%s\n' "${SENTRY_VERSION}" "${min_se
     # Services running Python commands (like snuba-api, snuba-replacer, snuba-subscription-consumer-*) must not receive
     # this volume mount because Python's sentry-options library throws a SchemaError if /etc/sentry-options is mounted
     # without a schema.json file.
-    rust_consumer_services=$(${docker_cmd:?} compose -f ./docker-compose.yml config --format json 2>/dev/null | python3 -c "
-import json, sys
-try:
-    data = json.load(sys.stdin)
-    rust_services = []
-    for sname, sdef in data.get('services', {}).items():
-        cmd = sdef.get('command')
-        cmd_str = ' '.join(cmd) if isinstance(cmd, list) else (cmd or '')
-        if any(b in cmd_str for b in ['rust-consumer', 'accepted-outcomes-consumer']):
-            rust_services.append(sname)
-    print(' '.join(rust_services))
-except Exception:
-    pass
-" 2>/dev/null || echo "")
+    rust_consumer_services=$(${docker_cmd:?} compose -f ./docker-compose.yml config --format json 2>/dev/null | yq -p=json -r '
+        [.services | to_entries | .[] |
+            select(.value.command | to_json | test("rust-consumer|accepted-outcomes-consumer")) |
+            .key] | join(" ")
+    ' 2>/dev/null || echo "")
 fi
 
 # Install the vmagent entrypoint beside the generated Compose configuration.
@@ -208,6 +199,25 @@ EOF
         echo "      - *cpu-shares-web" >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
     else
         echo "      - *backend-services-cpu-limits" >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
+    fi
+    # Explicit service environment values override env_file, including upstream's
+    # literal Kafka retention defaults (24 hours before 26.8, 3 hours afterwards).
+    if [[ "${service}" == "kafka" ]]; then
+        kafka_environment_written=false
+        for kafka_key in KAFKA_LOG_RETENTION_HOURS KAFKA_LOG_RETENTION_BYTES KAFKA_LOG_SEGMENT_BYTES \
+            KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS KAFKA_LOG_SEGMENT_DELETE_DELAY_MS \
+            KAFKA_LOG_CLEANER_ENABLE KAFKA_LOG_CLEANUP_POLICY; do
+            if [[ -n "${!kafka_key:-}" ]]; then
+                if [[ "${kafka_environment_written}" == "false" ]]; then
+                    echo "    environment:" >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
+                    kafka_environment_written=true
+                fi
+                # JSON strings are also valid YAML; preserve booleans, -1 and quoting as strings.
+                kafka_value=$(KAFKA_OVERRIDE_VALUE="${!kafka_key}" yq -n -o=json --unwrapScalar=false 'strenv(KAFKA_OVERRIDE_VALUE)')
+                printf '      %s: %s\n' "${kafka_key}" "${kafka_value}" >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
+                printf 'services/kafka/environment/%s/%s\n' "${kafka_key}" "${kafka_value}" >>"${SENTRY_DATA_PATH}/self_hosted/.z-custom-compose-config.tmp.txt"
+            fi
+        done
     fi
     # Sentry-Options Mount for Rust Snuba Consumers:
     # ---------------------------------------------------------------------------------------------

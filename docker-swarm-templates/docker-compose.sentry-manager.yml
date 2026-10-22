@@ -100,7 +100,8 @@
 #   #     Installs additional Python modules into the Sentry image.
 #   ADDITIONAL_PYTHON_MODULES=python-ldap
 #   #-  - BACKUP_VOLUMES_ON_UPDATE -
-#   #     Create a volume backup prior to installing an update. Note, this could use a lot of disk space. Ensure you have enough available.
+#   #     Stop the previous stack and back up its declared named volumes before an update.
+#   #     Ensure enough disk space. Back up external databases/storage and bind mounts separately.
 #   BACKUP_VOLUMES_ON_UPDATE=false
 #   #-  - EXEC_NUCLEAR_CLEAN -
 #   #     Force a clear of the kafka and zookeeper volumes once per unique key. Set to 'false' to disable.

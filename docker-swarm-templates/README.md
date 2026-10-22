@@ -174,9 +174,9 @@ For further details, troubleshooting, refer to these resources:
 
 `KAFKA_LOG_RETENTION_HOURS` (optional)
 
-- Default: `24`
+- Default: Upstream value (`24` hours through `26.7.2`; `3` hours in `26.8.0`–`26.10.0`).
 - Description: Sets time-based Kafka log retention.
-- Notes: This aligns with upstream self-hosted troubleshooting guidance.
+- Notes: An explicit value overrides the Kafka service environment. Leaving this unset preserves the selected upstream release’s default.
 - References:
   - <https://docs.confluent.io/platform/current/installation/configuration/broker-configs.html#log-retention-hours>
 

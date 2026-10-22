@@ -9,74 +9,77 @@
 # Modified By: Josh5 (jsunnex@gmail.com)
 ###
 
-RESTORE_VOLUMES_SCRIPT=$(
-    cat <<EOF
-#!/bin/sh
-set -e
-cd "\$(dirname "\$0")"
-echo "--- Restore Sentry Volumes ---"
-volumes="sentry-data sentry-postgres sentry-redis sentry-zookeeper sentry-kafka sentry-clickhouse sentry-symbolicator"
-for volume_name in \${volumes}; do
-if [ -f "\$(pwd)/\${volume_name}.tar" ]; then
-    echo "  - Deleting volume \${volume_name} if it exsits..."
-    ${docker_cmd:?} volume rm \${volume_name} || true
-    echo "  - Creating volume \${volume_name}..."
-    ${docker_cmd:?} volume create --name=\${volume_name}
-    echo "  - Restoring data into new volume \${volume_name}..."
-    ${docker_cmd:?} run --rm -w /data -v "\${volume_name}":/data -v "\$(pwd)":/backup ubuntu tar --same-owner -xvf /backup/\${volume_name}.tar --strip 1
-fi
-done
-EOF
-)
-
 echo "--- Downloading Sentry ---"
-PREVIOUS_SENTRY_VERSION="$(cat "${SENTRY_DATA_PATH}"/self_hosted/.z-downloaded-sentry-version.txt 2>/dev/null || echo "UNKNOWN")"
+PREVIOUS_SENTRY_VERSION="$(cat "${SENTRY_DATA_PATH:?}/self_hosted/.z-downloaded-sentry-version.txt" 2>/dev/null || echo "UNKNOWN")"
 echo "  - Previously installed version ${PREVIOUS_SENTRY_VERSION}"
-if [ "${PREVIOUS_SENTRY_VERSION:-}" != "${SENTRY_VERSION}" ]; then
-    echo "  - Downloading Sentry version ${SENTRY_VERSION:?}"
+if [ "${PREVIOUS_SENTRY_VERSION}" != "${SENTRY_VERSION:?}" ]; then
     date_string=$(date +"%Y-%m-%d-%H%M%S")
-    cd /tmp
-    if ! wget -q "https://github.com/getsentry/self-hosted/archive/refs/tags/${SENTRY_VERSION:?}.tar.gz" \
-        -O "/tmp/${SENTRY_VERSION:?}.tar.gz"; then
-        echo "    - Failed to download Sentry version ${SENTRY_VERSION:?}. The version may not exist."
+    backup_path="${SENTRY_DATA_PATH}/update_backups/self_hosted-v${PREVIOUS_SENTRY_VERSION}-${date_string}"
+    echo "  - Downloading Sentry version ${SENTRY_VERSION}"
+    if ! wget -q "https://github.com/getsentry/self-hosted/archive/refs/tags/${SENTRY_VERSION}.tar.gz" \
+        -O "/tmp/${SENTRY_VERSION}.tar.gz"; then
+        echo "    - Failed to download Sentry version ${SENTRY_VERSION}. The version may not exist." >&2
         exit 1
     fi
-    tar xzf "${SENTRY_VERSION:?}.tar.gz"
+    tar xzf "/tmp/${SENTRY_VERSION}.tar.gz" -C /tmp
 
-    echo "  - Backing up previous install to ${SENTRY_DATA_PATH}/update_backups/self_hosted-v${PREVIOUS_SENTRY_VERSION:-UNKNOWN}-${date_string}..."
-    mkdir -p ${SENTRY_DATA_PATH}/update_backups
-    mv -fv ${SENTRY_DATA_PATH}/self_hosted ${SENTRY_DATA_PATH}/update_backups/self_hosted-v${PREVIOUS_SENTRY_VERSION:-UNKNOWN}-${date_string}
-
-    echo "  - Unpacking new Sentry files..."
-    mv -v /tmp/self-hosted-${SENTRY_VERSION:?} ${SENTRY_DATA_PATH}/self_hosted
-    echo "${SENTRY_VERSION}" >${SENTRY_DATA_PATH}/self_hosted/.z-downloaded-sentry-version.txt
-    cd ${SENTRY_DATA_PATH}/self_hosted
-
-    echo "  - Pulling down any existing Sentry stack services..."
-    ${docker_compose_cmd:?} down --remove-orphans
+    # Stop the OLD Compose project before moving its configuration or reading data.
+    # Removed services and custom sidecars must also be stopped for a consistent backup.
+    previous_compose_files=(-f ./docker-compose.yml)
+    if [ -f "${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml" ]; then
+        previous_compose_files+=(-f ./docker-compose.custom.yml)
+    fi
+    if [ -f "${SENTRY_DATA_PATH}/self_hosted/.env.custom" ]; then
+        previous_compose_files+=(--env-file .env.custom)
+    fi
+    backup_volumes="sentry-data sentry-postgres sentry-redis sentry-zookeeper sentry-kafka sentry-clickhouse sentry-symbolicator sentry-seaweedfs sentry-vroom sentry-taskbroker"
+    if [ -f "${SENTRY_DATA_PATH}/self_hosted/docker-compose.yml" ]; then
+        if [ "${BACKUP_VOLUMES_ON_UPDATE:-}" = "true" ]; then
+            previous_compose_json=$(${docker_compose_cmd:?} "${previous_compose_files[@]}" --profile '*' config --format json)
+            # Compose supplies the actual names, including project-prefixed and custom volumes.
+            backup_volumes=$(yq -p=json -er '[.volumes[]?.name] | unique | join(" ")' <<<"${previous_compose_json}")
+            unset previous_compose_json
+        fi
+        echo "  - Stopping the previous Sentry stack..."
+        ${docker_compose_cmd:?} "${previous_compose_files[@]}" --profile '*' down --remove-orphans
+    fi
 
     if [ "${BACKUP_VOLUMES_ON_UPDATE:-}" = "true" ]; then
-        echo "  - Backup Docker volumes..."
-        volumes="sentry-data sentry-postgres sentry-redis sentry-zookeeper sentry-kafka sentry-clickhouse sentry-symbolicator"
-        mkdir -p "${SENTRY_DATA_PATH}"/update_backups/self_hosted-v${PREVIOUS_SENTRY_VERSION:-UNKNOWN}-${date_string}/volumes
-        for volume_name in ${volumes}; do
+        # Keep the old installation in place if any archive fails. A retry must not
+        # mistake a partially downloaded new release for a completed backup.
+        volumes_backup_path="${backup_path}.volumes"
+        mkdir -p "${volumes_backup_path}"
+        for volume_name in ${backup_volumes}; do
             if ${docker_cmd:?} volume inspect "${volume_name}" >/dev/null 2>&1; then
                 echo "    - Backing up ${volume_name}..."
-                ${docker_cmd:?} run --rm -v "${volume_name}":/data -v "${SENTRY_DATA_PATH}"/update_backups/self_hosted-v${PREVIOUS_SENTRY_VERSION:-UNKNOWN}-${date_string}/volumes:/backup ubuntu tar -zcvf /backup/${volume_name}.tar /data
+                ${docker_cmd:?} run --rm -v "${volume_name}:/data:ro" -v "${volumes_backup_path}:/backup" \
+                    ubuntu tar -zcpf "/backup/${volume_name}.tar" -C /data .
             else
-                echo "  Volume ${volume_name} not found, skipping backup."
+                echo "    - Volume ${volume_name} not found, skipping backup."
             fi
         done
 
-        echo "  - Install volumes restore script..."
-        echo "${RESTORE_VOLUMES_SCRIPT:?}" >"${SENTRY_DATA_PATH}"/update_backups/self_hosted-v${PREVIOUS_SENTRY_VERSION:-UNKNOWN}-${date_string}/volumes/restore-volumes.sh
-        chmod +x "${SENTRY_DATA_PATH}"/update_backups/self_hosted-v${PREVIOUS_SENTRY_VERSION:-UNKNOWN}-${date_string}/volumes/restore-volumes.sh
+        restore_script="${volumes_backup_path}/restore-volumes.sh"
+        cp -f "$(dirname "${BASH_SOURCE[0]}")/../../defaults/helpers/restore-volumes.sh" "${restore_script}"
+        read -r -a restore_docker_command <<<"${docker_cmd:?}"
+        printf -v restore_docker_command_quoted '%q ' "${restore_docker_command[@]}"
+        restore_docker_command_replacement=$(printf '%s' "${restore_docker_command_quoted}" | sed 's/[\\&|]/\\&/g')
+        sed -i "s|@DOCKER_COMMAND@|${restore_docker_command_replacement}|g" "${restore_script}"
+        chmod +x "${volumes_backup_path}/restore-volumes.sh"
     fi
 
-    echo "  - Cleaning out old docker images..."
-    ${docker_cmd:?} image prune --all --force
+    echo "  - Backing up previous install to ${backup_path}..."
+    mkdir -p "${SENTRY_DATA_PATH}/update_backups"
+    mv -v "${SENTRY_DATA_PATH}/self_hosted" "${backup_path}"
+    if [ "${BACKUP_VOLUMES_ON_UPDATE:-}" = "true" ]; then
+        mv -v "${volumes_backup_path}" "${backup_path}/volumes"
+    fi
+    echo "  - Unpacking new Sentry files..."
+    mv -v "/tmp/self-hosted-${SENTRY_VERSION}" "${SENTRY_DATA_PATH}/self_hosted"
+    echo "${SENTRY_VERSION}" >"${SENTRY_DATA_PATH}/self_hosted/.z-downloaded-sentry-version.txt"
+    cd "${SENTRY_DATA_PATH}/self_hosted" || exit 1
 else
-    echo "  - The downloaded version of Sentry is already ${SENTRY_VERSION:?}"
+    echo "  - The downloaded version of Sentry is already ${SENTRY_VERSION}"
 fi
 
 rm -f "${SENTRY_DATA_PATH}/self_hosted/.z-manager-service-running.txt"
