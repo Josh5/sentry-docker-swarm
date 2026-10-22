@@ -317,6 +317,23 @@ else
     echo "      - Skipping GitHub app config"
 fi
 
+# Configure Discord
+if [ -n "${SENTRY_DISCORD_APPLICATION_ID:-}${SENTRY_DISCORD_PUBLIC_KEY:-}${SENTRY_DISCORD_CLIENT_SECRET:-}${SENTRY_DISCORD_BOT_TOKEN:-}" ]; then
+    : "${SENTRY_DISCORD_APPLICATION_ID:?Required when configuring the Discord integration}"
+    : "${SENTRY_DISCORD_PUBLIC_KEY:?Required when configuring the Discord integration}"
+    : "${SENTRY_DISCORD_CLIENT_SECRET:?Required when configuring the Discord integration}"
+    : "${SENTRY_DISCORD_BOT_TOKEN:?Required when configuring the Discord integration}"
+    echo "      - Configure Discord integration"
+    yq eval -i '
+        ."discord.application-id" = strenv(SENTRY_DISCORD_APPLICATION_ID) |
+        ."discord.public-key" = strenv(SENTRY_DISCORD_PUBLIC_KEY) |
+        ."discord.client-secret" = strenv(SENTRY_DISCORD_CLIENT_SECRET) |
+        ."discord.bot-token" = strenv(SENTRY_DISCORD_BOT_TOKEN)
+    ' "${SENTRY_DATA_PATH}/self_hosted/sentry/config.tmp.yml"
+else
+    echo "      - Skipping Discord integration config"
+fi
+
 # Configure Filestore
 if [ "X${SENTRY_FILESTORE_BACKEND_S3_BUCKET:-}" != "X" ]; then
     echo "      - Configure custom Sentry S3 filestore backend"
