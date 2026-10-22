@@ -27,10 +27,8 @@ if [[ -n "${SENTRY_VERSION:-}" && "$(printf '%s\n' "${SENTRY_VERSION}" "${min_se
     mkdir -p "${SENTRY_DATA_PATH}/self_hosted/sentry-options/values"
     chmod 755 "${SENTRY_DATA_PATH}/self_hosted/sentry-options" "${SENTRY_DATA_PATH}/self_hosted/sentry-options/values"
 
-    # Dynamically discover all Snuba services running Rust consumers (e.g., rust-consumer, accepted-outcomes-consumer).
-    # Services running Python commands (like snuba-api, snuba-replacer, snuba-subscription-consumer-*) must not receive
-    # this volume mount because Python's sentry-options library throws a SchemaError if /etc/sentry-options is mounted
-    # without a schema.json file.
+    # Only Rust consumers need the host values directory. Preserve the image's
+    # /etc/sentry-options/schemas for the Python startup code used by these services.
     rust_consumer_services=$(${docker_cmd:?} compose -f ./docker-compose.yml config --format json 2>/dev/null | yq -p=json -r '
         [.services | to_entries | .[] |
             select(.value.command | to_json | test("rust-consumer|accepted-outcomes-consumer")) |
@@ -219,17 +217,12 @@ EOF
             fi
         done
     fi
-    # Sentry-Options Mount for Rust Snuba Consumers:
-    # ---------------------------------------------------------------------------------------------
-    # In Sentry 26.x, Snuba's Rust-based Kafka consumers monitor `/etc/sentry-options/values/` for
-    # dynamic configuration overrides and feature flags. We dynamically check if the service runs a
-    # Rust consumer binary (`rust-consumer`, `accepted-outcomes-consumer`, etc.) before injecting
-    # this volume mount. Python-based Snuba services (`snuba-api`, `snuba-replacer`, etc.) are left
-    # unmounted so they use their bundled image schema without throwing SchemaErrors.
+    # Mount only values: mounting /etc/sentry-options hides the bundled schemas
+    # and causes sentry_options.SchemaError during Python startup of Rust consumers.
     if [[ -n "${rust_consumer_services:-}" && " ${rust_consumer_services} " =~ " ${service:?} " ]]; then
         cat <<EOF >>"${SENTRY_DATA_PATH}/self_hosted/docker-compose.custom.yml"
     volumes:
-      - ${SENTRY_DATA_PATH}/self_hosted/sentry-options:/etc/sentry-options:ro
+      - ${SENTRY_DATA_PATH}/self_hosted/sentry-options/values:/etc/sentry-options/values:ro
 EOF
     fi
 done
